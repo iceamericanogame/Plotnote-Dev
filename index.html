@@ -315,7 +315,7 @@ main{flex:1;min-height:0;position:relative}
 @media (min-width:900px){
   .drawer{position:static;transform:none;width:272px;flex:none;box-shadow:none;margin-right:20px;padding:12px 14px 12px 0;border-right:1px solid var(--line);background:transparent;height:100%}
   .scrim{display:none!important}
-  #menuBtn{display:none}
+  body.dr-hide .drawer{display:none}   /* 넓은 화면: ☰로 목록을 통째로 숨기기 */
   .tab{flex:none;padding:10px 20px}
 }
 @media (prefers-reduced-motion:reduce){.drawer{transition:none}}
@@ -2202,6 +2202,16 @@ function addGuide(){
   showDoc(g.docs[0]); persistMeta(); renderDrawer(); closeSet(); setTab('write');
   toast('「플롯노트 안내」 소설을 추가했어요');
 }
+// 넓은 화면(컴퓨터·아이패드): 목록은 늘 펼쳐 두고, ☰로 통째로 숨기거나 다시 펼친다(기기마다 기억). 폰은 위에 띄우는 방식 그대로
+var DRH_KEY='plotnote-dev:drawerHidden';
+function wideUI(){ return matchMedia('(min-width:900px)').matches; }
+function drHide(on,keep){
+  document.body.classList.toggle('dr-hide',!!on);
+  if(!keep){ try{ if(on) localStorage.setItem(DRH_KEY,'1'); else localStorage.removeItem(DRH_KEY); }catch(_){} }
+  menuLbl();
+}
+function menuLbl(){ var b=$('#menuBtn'); if(!b) return; var l=wideUI()?(document.body.classList.contains('dr-hide')?'회차 목록 펼치기':'회차 목록 숨기기'):'회차 목록 열기'; b.setAttribute('aria-label',l); b.title=wideUI()?l:''; }
+function menuTap(){ if(wideUI()) drHide(!document.body.classList.contains('dr-hide')); else openDrawer(true); }
 function openDrawer(o){
   if(!o&&DEL.on){DEL.on=false;DEL.docs={};DEL.works={};renderDrawer();}
   if(!o&&EDIT.on) editOff();
@@ -3759,7 +3769,10 @@ function bindOnce(){
     applyTheme(t);
   });});
   $$('.tab').forEach(function(b){b.addEventListener('click',function(){setTab(b.getAttribute('data-tab'));});});
-  $('#menuBtn').addEventListener('click',function(){openDrawer(true);});
+  $('#menuBtn').addEventListener('click',menuTap);
+  try{ if(localStorage.getItem(DRH_KEY)) drHide(true,true); }catch(_){}
+  matchMedia('(min-width:900px)').addEventListener('change',menuLbl); menuLbl();
+  document.addEventListener('keydown',function(e){ if((e.ctrlKey||e.metaKey)&&e.key==='\\'&&wideUI()&&!TOUR){ e.preventDefault(); menuTap(); } });   // Ctrl(⌘)+\ 로 목록 숨기기·펼치기
   $('#scrim').addEventListener('click',function(){openDrawer(false);});
   $('#newWork').addEventListener('click',addWork);
   ['pointerdown','mousedown'].forEach(function(t){ $('#newWork').addEventListener(t,function(ev){ if(RN) ev.preventDefault(); }); });   // 이름 정하는 중 다시 눌러도 이름 칸이 닫히지 않게
@@ -3962,7 +3975,7 @@ boot();
 /* ---------- 새 버전 알림: 깃허브에 새 버전이 올라오면 맨 위에 "새 버전이 나왔어요. [새로고침]" ----------
    열어 둔 채로 며칠씩 쓰면 예전 버전이 계속 돌아가므로, 앱으로 돌아올 때와 30분마다 sw.js의 버전을 조용히 확인한다.
    (Claude 테스트 페이지·파일 하나짜리 html에는 sw.js가 없어서 동작하지 않음) */
-var APPVER='e3e029772f', verAt=0;
+var APPVER='d2f8e3aea9', verAt=0;
 function verCheck(force){
   if(APPVER.indexOf('__')===0||!navigator.onLine||!/^https?:$/.test(location.protocol)) return;
   if(!force&&Date.now()-verAt<5*60000) return; verAt=Date.now();
@@ -4019,7 +4032,7 @@ var TOURKEY=KEY+':tour', TOUR=null;
 function tourSeen(k){ try{ return !!(JSON.parse(localStorage.getItem(TOURKEY)||'{}')[k]); }catch(_){ return true; } }
 function tourMark(k,v){ try{ var o=JSON.parse(localStorage.getItem(TOURKEY)||'{}'); if(v) o[k]=1; else delete o[k]; localStorage.setItem(TOURKEY,JSON.stringify(o)); }catch(_){} }
 function shown(el){ if(!el) return false; var r=el.getBoundingClientRect(); return r.width>0&&r.height>0&&getComputedStyle(el).visibility!=='hidden'; }
-function compactUI(){ return shown($('#menuBtn')); }
+function compactUI(){ return !wideUI(); }
 function legend(rows){   // 말풍선 안: 실제 아이콘 + 뜻
   return h('div',{class:'tq-lg'},rows.map(function(r){
     var ic=h('span',{class:'tq-ic'});
@@ -4031,7 +4044,7 @@ function legend(rows){   // 말풍선 안: 실제 아이콘 + 뜻
 function mainSteps(){
   var dr=function(o){ return function(){ if(compactUI()) openDrawer(o); }; };
   return [
-    {el:'#menuBtn', when:compactUI, pre:dr(false), t:'목록', d:'여기를 누르면 내 소설과 회차 목록이 열려요.'},
+    {el:'#menuBtn', pre:dr(false), t:'목록', d:function(){ return h('p',{text:compactUI()?'여기를 누르면 내 소설과 회차 목록이 열려요.':'여기를 누르면 내 소설과 회차 목록을 숨기거나 다시 펼쳐요.'}); }},
     {el:'#newWork', pre:dr(true), t:'새 소설 · 회차', d:'새 소설을 만들어요. 소설 이름 옆 +로 회차를 더해요.'},
     {el:['#tab-write','#tab-board','#tab-hist'], pre:function(){ dr(false)(); if(S.prefs.tab!=='write') setTab('write'); }, t:'쓰기 · 보드 · 기록', d:'원고를 쓰고, 포스트잇으로 구상하고, 예전 글로 되돌려요.'},
     {el:'.wbar .tools', t:'글 쓰는 도구', d:function(){ return legend([[['#undo','#redo'],'되돌리기 · 다시 하기'],[['#fontMinus','#fontPlus'],'글자 작게 · 크게'],[['#fontFace'],'글꼴 바꾸기'],[['#snapBtn'],'지금 글을 기록으로 남기기'],[['#focusBtn'],'집중 모드 (글만 보기)']]); }},
@@ -4052,6 +4065,7 @@ function boardSteps(){
 }
 function tourStart(kind){
   if(TOUR) return;
+  if(kind==='main'&&wideUI()&&document.body.classList.contains('dr-hide')) drHide(false);   // 목록을 소개하려면 펼쳐 둔다
   var steps=(kind==='board'?boardSteps():mainSteps()).filter(function(s){ return !s.when||s.when(); });
   if(!steps.length) return;
   tourMark(kind,1);   // 건너뛰어도 다시 뜨지 않는다
