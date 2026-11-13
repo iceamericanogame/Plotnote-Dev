@@ -48,7 +48,7 @@ window.PLOTNOTE_CONFIG = {
   // 테스트 기간용: 정식 공개 때는 BETA_NOTE를 false로, FEEDBACK_URL을 ''로 바꾸면 안내 문구·버그/건의 버튼이 사라져요
   BETA_NOTE: true,                    // 맨 위 "아직 개발 중이에요…" 안내
   FEEDBACK_URL: 'https://scientific-fireplant-0c9.notion.site/416682119ca78167ab3ec23c262fb14d',   // 목록 위 [버그/건의] 버튼이 여는 주소
-  DONATE_URL: ''                      // 설정 맨 위 [커피 한 잔 보내기]가 여는 후원 주소. 비워 두면 후원 칸이 숨어요
+  DONATE_URL: 'https://litt.ly/seeot'                      // 설정 맨 위 [커피 한 잔 보내기]가 여는 후원 주소. 비워 두면 후원 칸이 숨어요
 };
 </script>
 
@@ -389,7 +389,7 @@ button:focus-visible,.btn:focus-visible,.ib:focus-visible,.tab:focus-visible,inp
 .del-go{background:var(--danger-fill);color:#FBFAF6;border-color:var(--danger-fill)}
 .del-go:disabled{opacity:.4}
 .dl-opt{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);padding:13px 14px;font-size:15px}
-.dl-opt small{color:var(--ink-2);font-size:12.5px}
+.dl-row{display:flex;gap:10px}.dl-row .dl-opt{flex:1;min-width:0;align-items:center;justify-content:center;text-align:center;padding:16px 0}
 .modal#dlM{z-index:50}
 
 .dl.add,.dl.del{background:none;color:var(--ink)}
@@ -822,8 +822,7 @@ body.focus .f-marks{display:none}
   <div class="modal-panel">
     <div class="m-head"><h2 id="dlT">받기</h2><button class="ib" id="dlX" aria-label="닫기" data-ico="x"></button></div>
     <div class="dl-info" id="dlInfo" hidden></div>
-    <button class="dl-opt" id="dlTxt"><b>txt</b><small id="dlTxtD"></small></button>
-    <button class="dl-opt" id="dlEpub"><b>epub</b><small id="dlEpubD"></small></button>
+    <div class="dl-row"><button class="dl-opt" id="dlDocx"><b>docx</b></button><button class="dl-opt" id="dlEpub"><b>epub</b></button><button class="dl-opt" id="dlTxt"><b>txt</b></button></div>
   </div>
 </div>
 <div class="modal" id="setM" role="dialog" aria-modal="true" aria-labelledby="setT" hidden>
@@ -2158,8 +2157,6 @@ function openDlPick(){
     info.append(ul);
   }
   info.hidden=one;
-  $('#dlTxtD').textContent=one?(f0.kind==='work'?'모든 회차를 이어 붙인 텍스트 파일':'이 회차의 텍스트 파일'):'텍스트 파일';
-  $('#dlEpubD').textContent=one?(f0.kind==='work'?'전자책 앱에서 읽는 형식 · 회차별 목차':'전자책 앱에서 읽는 형식 · 한 회차짜리 책'):'전자책 앱에서 읽는 형식';
   $('#dlM').hidden=false;
 }
 function epNum(d,i){ var m=/^\s*(\d+)\s*화/.exec(d.title||''); return m?m[1]+'화':(i+1)+'화'; }
@@ -2168,24 +2165,27 @@ function lastNum(ds){ return epNum(ds[ds.length-1],ds.length-1); }
 function closeDl(){$('#dlM').hidden=true;DLT=null;}
 function fileOf(f,fmt,author,prefix){
   if(f.kind==='work'){
-    var w=f.w;
-    if(fmt==='txt') return {name:safeName(w.title)+' 합본.txt',text:'﻿'+f.docs.map(function(d){return (d.title||'제목 없음')+'\n\n'+d.text;}).join('\n\n────────────\n\n')};
-    var docs=f.docs.filter(function(d){return d.text&&d.text.trim();}); if(!docs.length) return null;
-    return {name:safeName(w.title)+'.epub',bytes:makeEpub(w,docs,author,true)};
+    var w=f.w, docs=f.docs.filter(function(d){return d.text&&d.text.trim();});
+    if(!docs.length) return null;
+    if(docs.length<f.docs.length) f.skip=f.docs.length-docs.length;   // 합본 안에서 뺀 빈 회차 수
+    if(fmt==='txt') return {name:safeName(w.title)+' 합본.txt',text:'﻿'+docs.map(function(d){return (d.title||'제목 없음')+'\n\n'+d.text;}).join('\n\n────────────\n\n')};
+    if(fmt==='docx') return {name:safeName(w.title)+'.docx',bytes:makeDocx(w.title||'제목 없음',docs,true)};
+    return {name:safeName(w.title)+'.epub',bytes:makeEpub(w,docs,'',true)};
   }
   var d=f.d, base=(prefix?safeName(f.w.title)+' - ':'')+safeName(d.title);
-  if(fmt==='txt') return {name:base+'.txt',text:'﻿'+(d.title?d.title+'\n\n':'')+d.text};
   if(!d.text||!d.text.trim()) return null;
-  return {name:base+'.epub',bytes:makeEpub(f.w,[d],author,true)};
+  if(fmt==='txt') return {name:base+'.txt',text:'﻿'+(d.title?d.title+'\n\n':'')+d.text};
+  if(fmt==='docx') return {name:base+'.docx',bytes:makeDocx(d.title||'',[d],false)};
+  return {name:base+'.epub',bytes:makeEpub(f.w,[d],'',true)};
 }
 function runDl(fmt){
   var fs=DLT; closeDl(); if(!fs||!fs.length) return;
-  var author=(typeof A!=='undefined'&&A.name)||'';
+  var author='';   // 저자 이름은 넣지 않는다(투고용 파일에 계정 이름이 들어가지 않게)
   var multi=fs.length>1, files=[], skipped=0, used={};
-  fs.forEach(function(f){ var x=fileOf(f,fmt,author,multi); if(!x){skipped++;return;}
+  fs.forEach(function(f){ var x=fileOf(f,fmt,author,multi); if(!x){skipped+=f.kind==='work'?f.docs.length:1;return;} if(f.skip){skipped+=f.skip;f.skip=0;}
     var nm=x.name, k=2; while(used[nm]){ nm=x.name.replace(/(\.\w+)$/,' ('+(k++)+')$1'); } used[nm]=1; x.name=nm; files.push(x); });
   if(!files.length){ toast('내보낼 글이 아직 없어요'); return; }
-  if(files.length===1&&!multi){ var o=files[0]; saveFile(o.name,o.bytes?new Blob([o.bytes],{type:'application/epub+zip'}):new Blob([o.text],{type:'text/plain;charset=utf-8'})); }
+  if(files.length===1&&!multi){ var o=files[0]; saveFile(o.name,o.bytes?new Blob([o.bytes],{type:fmt==='docx'?'application/vnd.openxmlformats-officedocument.wordprocessingml.document':'application/epub+zip'}):new Blob([o.text],{type:'text/plain;charset=utf-8'})); }
   else saveFile('플롯노트 '+d8(Date.now())+'.zip',zipStore(files,'application/zip'));
   if(skipped) toast('글이 없는 회차 '+skipped+'개는 빼고 받았어요');
   delOff();
@@ -2615,12 +2615,13 @@ function renderTrash(){
 }
 
 /* ---------- 백업: 모든 소설·회차·보드·기록을 파일 하나로 받고, 다시 불러와 합치기 ---------- */
-var BK=null, bkUndo=null;   // BK = 불러오려고 고른 백업(확인 전), bkUndo = 가져오기 직전 상태
+var BK=null, bkUndo=null, BKT_KEY='plotnote-dev:lastBackup';   // BK = 불러오려고 고른 백업(확인 전), bkUndo = 가져오기 직전 상태
+function lsGet(k){ try{return localStorage.getItem(k);}catch(_){return null;} }
 function d8(t){var d=new Date(t);return d.getFullYear()+p2(d.getMonth()+1)+p2(d.getDate())+'-'+p2(d.getHours())+p2(d.getMinutes());}
 function dateKo(t){var d=new Date(t);return d.getFullYear()+'. '+(d.getMonth()+1)+'. '+d.getDate()+'. '+hm(t);}
 function backupLbl(){
   var l=$('#bkLast'); if(!l) return;
-  var t=S&&S.prefs.lastBackup;
+  var t=Math.max(S&&S.prefs.lastBackup||0,+(lsGet(BKT_KEY)||0))||0;
   l.textContent=t?'이 기기에서 마지막으로 받은 백업: '+dateKo(t):'이 기기에서 아직 백업 파일을 받은 적이 없어요.'; l.hidden=false;
 }
 // 로그인 중이고 드라이브에 올라가고 있는지(기기에 못 써도 글은 드라이브에 있음)
@@ -2666,7 +2667,8 @@ function exportBackup(){
   var data={app:'plotnote',kind:'backup',schema:1,exportedAt:now,activeId:S.activeId,
     docs:S.docs,works:S.works,boards:S.boards,versions:S.versions,tomb:S.tomb};
   saveFile('plotnote-backup-'+d8(now)+'.json',new Blob([JSON.stringify(data)],{type:'application/json'}));
-  S.prefs.lastBackup=now; persistMeta(); backupLbl();
+  S.prefs.lastBackup=now; try{localStorage.setItem(BKT_KEY,String(now));}catch(_){}   // 작은 칸에도 바로 적어 둔다(받자마자 새로고침해도 표시가 남게)
+  saveLSNow(); backupLbl();
 }
 // 고른 파일을 읽어 내용을 확인하고, 합치기 전에 무엇이 들어 있는지 보여 준다
 function readBackup(file){
@@ -2676,13 +2678,36 @@ function readBackup(file){
     var j=null;
     try{ j=JSON.parse(String(rd.result).replace(/^﻿/,'')); }catch(_){}
     if(!j||j.app!=='plotnote'||!Array.isArray(j.docs)||!Array.isArray(j.works)){ BK=null; bkShow(); toast('플롯노트 백업 파일이 아니에요'); return; }
-    j.boards=(j.boards&&typeof j.boards==='object')?j.boards:{};
-    j.versions=Array.isArray(j.versions)?j.versions:[];
-    j.tomb=(j.tomb&&typeof j.tomb==='object')?j.tomb:{};
+    if(!bkClean(j)){ BK=null; bkShow(); toast('백업 파일이 손상돼서 불러올 수 없어요'); return; }
     BK={data:j,name:file.name}; bkShow();
   };
   rd.onerror=function(){toast('파일을 읽지 못했어요');};
   rd.readAsText(file);
+}
+// 손으로 고쳤거나 깨진 백업: 소설·회차 뼈대가 이상하면 통째로 거절하고, 덜 중요한 부분(보드·기록)은 이상한 것만 버린다
+function bkClean(j){
+  function obj(x){return x&&typeof x==='object'&&!Array.isArray(x);}
+  function sid(x){return (typeof x==='string'&&x)||(typeof x==='number'&&isFinite(x))?String(x):'';}
+  if(!j.works.every(obj)||!j.docs.every(obj)) return false;
+  var wids={};
+  for(var i=0;i<j.works.length;i++){ var w=j.works[i]; w.id=sid(w.id); if(!w.id||wids[w.id]) return false; wids[w.id]=1; w.title=w.title==null?'':String(w.title); }
+  var dids={};
+  for(i=0;i<j.docs.length;i++){ var d=j.docs[i]; d.id=sid(d.id); d.workId=sid(d.workId);
+    if(!d.id||dids[d.id]||!d.workId) return false;
+    if(!wids[d.workId]&&!(S.works||[]).some(function(x){return x.id===d.workId;})) return false;   // 어느 소설에도 속하지 않는 회차
+    dids[d.id]=1; d.title=d.title==null?'':String(d.title); d.text=d.text==null?'':String(d.text); }
+  j.works.forEach(function(w){   // 회차 순서: 이 소설의 회차만, 한 번씩
+    if(!Array.isArray(w.docOrder)) return; var seen={};
+    w.docOrder=w.docOrder.map(sid).filter(function(id){ if(!id||seen[id]||!dids[id]) return false; seen[id]=1; return j.docs.some(function(d){return d.id===id&&d.workId===w.id;}); });
+  });
+  var b=obj(j.boards)?j.boards:{}, nb={};
+  Object.keys(b).forEach(function(k){ var x=b[k]; if(!obj(x)) return;
+    x.notes=(Array.isArray(x.notes)?x.notes:[]).filter(function(n){return obj(n)&&sid(n.id);});
+    x.links=(Array.isArray(x.links)?x.links:[]).filter(obj); nb[k]=x; });
+  j.boards=nb;
+  j.versions=(Array.isArray(j.versions)?j.versions:[]).filter(function(v){ if(!obj(v)||!sid(v.id)||!sid(v.docId)) return false; v.text=v.text==null?'':String(v.text); v.title=v.title==null?'':String(v.title); return true; });
+  j.tomb=obj(j.tomb)?j.tomb:{};
+  return true;
 }
 function bkShow(){
   var box=$('#bkPrev'); if(!box) return;
@@ -2695,15 +2720,19 @@ function importBackup(){
   if(!BK) return;
   var j=JSON.parse(JSON.stringify(BK.data)), now=Date.now();
   bkUndo=JSON.stringify(S);
-  // 1) 이 기기에서 완전히 지운(삭제 표시가 남은) 항목은 새 id로 바꿔서 되살린다
+  // 1) 이 기기에서 완전히 지운(삭제 표시가 남은) 항목은 새 id로 바꿔서 되살린다.
+  //    새 id는 늘 같은 규칙(옛 id + r)으로 붙여서, 같은 백업을 다시 합쳐도 같은 항목으로 알아보고 하나로 합친다(중복 방지).
+  //    되살린 것도 나중에 또 완전히 지웠으면 r을 하나 더 붙인다. 되살린 소설(또는 남아 있는 소설로 들어가는 회차)은 제목 뒤에 "_(백업)"
   var map={};
-  j.works.forEach(function(w){ if(S.tomb[w.id]){ map[w.id]=uid(); } });
-  j.docs.forEach(function(d){ if(S.tomb[d.id]){ map[d.id]=uid(); } });
+  function rid(id){ var c=id+'r'; while(S.tomb[c]) c+='r'; return c; }
+  function tag(t){ t=String(t||'제목 없음').replace(/\s+$/,''); return /_\(백업\)$/.test(t)?t:t+'_(백업)'; }
+  j.works.forEach(function(w){ if(S.tomb[w.id]){ map[w.id]=rid(w.id); w.title=tag(w.title); } });
+  j.docs.forEach(function(d){ if(S.tomb[d.id]){ map[d.id]=rid(d.id); if(!map[d.workId]) d.title=tag(d.title); } });
   function m(id){return map[id]||id;}
   j.works.forEach(function(w){ w.id=m(w.id); if(Array.isArray(w.docOrder)) w.docOrder=w.docOrder.map(m); });
   j.docs.forEach(function(d){ d.id=m(d.id); d.workId=m(d.workId); });
   var nb={}; Object.keys(j.boards).forEach(function(k){ nb[m(k)]=j.boards[k]; }); j.boards=nb;
-  j.versions.forEach(function(v){ v.docId=m(v.docId); if(S.tomb[v.id]) v.id=uid(); });
+  j.versions.forEach(function(v){ v.docId=m(v.docId); if(S.tomb[v.id]) v.id=rid(v.id); });
   // 2) 합치기 (첫 실행 예시만 있는 상태라면 예시는 버린다)
   var mm=mergeCore(S,{docs:j.docs,works:j.works,boards:j.boards,tomb:{}},{dropLocal:!!S.fresh});
   S.docs=mm.docs; S.works=mm.works; S.boards=mm.boards; S.tomb=mm.tomb;
@@ -3646,7 +3675,7 @@ function zipParts(files){
   return parts.concat(cd,[new Uint8Array(end.buffer)]);
 }
 function joinBytes(parts){ var n=0; parts.forEach(function(p){n+=p.length;}); var u=new Uint8Array(n), o=0; parts.forEach(function(p){u.set(p,o);o+=p.length;}); return u; }
-function xe(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function xe(s){return String(s==null?'':s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g,'').replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
 function makeEpub(w,docs,author,asBytes){
   var X='<?xml version="1.0" encoding="UTF-8"?>\n', NS='xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="ko" xml:lang="ko"';
   var title=w.title||'제목 없음', id='urn:uuid:plotnote-'+w.id, mod=new Date().toISOString().replace(/\.\d+Z$/,'Z');
@@ -3672,6 +3701,39 @@ function makeEpub(w,docs,author,asBytes){
     {name:'OEBPS/content.opf',text:opf},{name:'OEBPS/nav.xhtml',text:nav},{name:'OEBPS/toc.ncx',text:ncx},{name:'OEBPS/style.css',text:css},{name:'OEBPS/title.xhtml',text:titlePage}];
   chapters.forEach(function(c){files.push({name:'OEBPS/'+c.name,text:c.xml});});
   return asBytes?joinBytes(zipParts(files)):zipStore(files);
+}
+
+/* ---------- 워드(docx) 만들기: 워드·한글·구글 문서에서 열린다 ----------
+   A4, 바탕 11pt, 줄 간격 160%, 첫 줄 한 칸 들여쓰기, 양쪽 맞춤.
+   합본(cover=true)이면 첫 장은 소설 제목, 회차마다 새 페이지에서 시작한다. */
+function makeDocx(title,docs,cover){
+  var X='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n', W='xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"';
+  function xt(s){return xe(s);}
+  function p(style,t,brk){return '<w:p>'+(style||brk?'<w:pPr>'+(style?'<w:pStyle w:val="'+style+'"/>':'')+(brk?'<w:pageBreakBefore/>':'')+'</w:pPr>':'')+(t?'<w:r><w:t xml:space="preserve">'+xt(t)+'</w:t></w:r>':'')+'</w:p>';}
+  var body=cover?p('Title',title):'';
+  docs.forEach(function(d,i){
+    if(d.title||cover) body+=p('Heading1',d.title||'',cover);
+    var lines=String(d.text||'').replace(/\r/g,'').split('\n'), gap=false, any=false;
+    lines.forEach(function(l){
+      if(!l.trim()){ if(any&&!gap){body+=p('','');gap=true;} }
+      else{ body+=p('',l.trim()); gap=false; any=true; }
+    });
+  });
+  body+='<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1418" w:right="1418" w:bottom="1418" w:left="1418" w:header="851" w:footer="851" w:gutter="0"/></w:sectPr>';
+  var rf='<w:rFonts w:ascii="Batang" w:hAnsi="Batang" w:eastAsia="Batang" w:cs="Batang"/>';
+  var styles=X+'<w:styles '+W+'><w:docDefaults><w:rPrDefault><w:rPr>'+rf+'<w:sz w:val="22"/><w:szCs w:val="22"/><w:lang w:val="ko-KR" w:eastAsia="ko-KR"/></w:rPr></w:rPrDefault>'+
+    '<w:pPrDefault><w:pPr><w:spacing w:after="0" w:line="384" w:lineRule="auto"/><w:ind w:firstLineChars="100" w:firstLine="220"/><w:jc w:val="both"/></w:pPr></w:pPrDefault></w:docDefaults>'+
+    '<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style>'+
+    '<w:style w:type="paragraph" w:styleId="Title"><w:name w:val="Title"/><w:basedOn w:val="Normal"/><w:pPr><w:spacing w:before="2400" w:after="600"/><w:ind w:firstLineChars="0" w:firstLine="0"/><w:jc w:val="center"/></w:pPr><w:rPr><w:b/><w:sz w:val="40"/></w:rPr></w:style>'+
+    '<w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:pPr><w:keepNext/><w:spacing w:before="0" w:after="480"/><w:ind w:firstLineChars="0" w:firstLine="0"/><w:jc w:val="center"/><w:outlineLvl w:val="0"/></w:pPr><w:rPr><w:b/><w:sz w:val="28"/></w:rPr></w:style></w:styles>';
+  var R='http://schemas.openxmlformats.org/', T=R+'package/2006/relationships';
+  var files=[
+    {name:'[Content_Types].xml',text:X+'<Types xmlns="'+R+'package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>'},
+    {name:'_rels/.rels',text:X+'<Relationships xmlns="'+T+'"><Relationship Id="rId1" Type="'+R+'officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>'},
+    {name:'word/_rels/document.xml.rels',text:X+'<Relationships xmlns="'+T+'"><Relationship Id="rId1" Type="'+R+'officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'},
+    {name:'word/styles.xml',text:styles},
+    {name:'word/document.xml',text:X+'<w:document '+W+'><w:body>'+body+'</w:body></w:document>'}];
+  return joinBytes(zipParts(files));
 }
 
 function safeName(s){return (s||'원고').replace(/[\\\/:*?"<>|\n\r]+/g,'-').trim().slice(0,60)||'원고';}
@@ -3727,6 +3789,7 @@ function bindOnce(){
   $('#dlM').addEventListener('click',function(ev){if(ev.target===$('#dlM'))closeDl();});
   $('#dlTxt').addEventListener('click',function(){runDl('txt');});
   $('#dlEpub').addEventListener('click',function(){runDl('epub');});
+  $('#dlDocx').addEventListener('click',function(){runDl('docx');});
   $('#acctBtn').addEventListener('click',openAcct);
   $('#acctX').addEventListener('click',closeAcct);
   $('#acctM').addEventListener('click',function(ev){if(ev.target===$('#acctM'))closeAcct();});
@@ -3899,7 +3962,7 @@ boot();
 /* ---------- 새 버전 알림: 깃허브에 새 버전이 올라오면 맨 위에 "새 버전이 나왔어요. [새로고침]" ----------
    열어 둔 채로 며칠씩 쓰면 예전 버전이 계속 돌아가므로, 앱으로 돌아올 때와 30분마다 sw.js의 버전을 조용히 확인한다.
    (Claude 테스트 페이지·파일 하나짜리 html에는 sw.js가 없어서 동작하지 않음) */
-var APPVER='5adca77373', verAt=0;
+var APPVER='e3e029772f', verAt=0;
 function verCheck(force){
   if(APPVER.indexOf('__')===0||!navigator.onLine||!/^https?:$/.test(location.protocol)) return;
   if(!force&&Date.now()-verAt<5*60000) return; verAt=Date.now();
@@ -3970,7 +4033,7 @@ function mainSteps(){
   return [
     {el:'#menuBtn', when:compactUI, pre:dr(false), t:'목록', d:'여기를 누르면 내 소설과 회차 목록이 열려요.'},
     {el:'#newWork', pre:dr(true), t:'새 소설 · 회차', d:'새 소설을 만들어요. 소설 이름 옆 +로 회차를 더해요.'},
-    {el:'.tabs', pre:function(){ dr(false)(); if(S.prefs.tab!=='write') setTab('write'); }, t:'쓰기 · 보드 · 기록', d:'원고를 쓰고, 포스트잇으로 구상하고, 예전 글로 되돌려요.'},
+    {el:['#tab-write','#tab-board','#tab-hist'], pre:function(){ dr(false)(); if(S.prefs.tab!=='write') setTab('write'); }, t:'쓰기 · 보드 · 기록', d:'원고를 쓰고, 포스트잇으로 구상하고, 예전 글로 되돌려요.'},
     {el:'.wbar .tools', t:'글 쓰는 도구', d:function(){ return legend([[['#undo','#redo'],'되돌리기 · 다시 하기'],[['#fontMinus','#fontPlus'],'글자 작게 · 크게'],[['#fontFace'],'글꼴 바꾸기'],[['#snapBtn'],'지금 글을 기록으로 남기기'],[['#focusBtn'],'집중 모드 (글만 보기)']]); }},
     {el:'#save', t:'자동 저장', d:'쓰는 대로 저장돼요. 저장 버튼은 없어요.'},
     {el:'#acctBtn', when:function(){ return shown($('#acctBtn')); }, t:'여러 기기에서 쓰기', d:'구글로 로그인하면 여러 기기에서 이어 쓸 수 있어요.'},
@@ -3997,12 +4060,15 @@ function tourStart(kind){
   TOUR={kind:kind,steps:steps,i:0,q:q,hole:hole,bub:bub};
   q.addEventListener('pointerdown',function(ev){ if(!bub.contains(ev.target)) ev.preventDefault(); });
   document.addEventListener('keydown',tourKey,true); window.addEventListener('resize',tourPlace);
+  // 튜토리얼이 떠 있는 동안 화면 배치가 바뀌면(구글 다시 연결 창, 안내 줄이 생기거나 사라짐 등) 밝은 자리와 말풍선을 다시 맞춘다
+  TOUR.tick=setInterval(function(){ if(TOUR&&!TOUR.bub.classList.contains('wait')&&tourSig()!==TOUR.sig) tourPlace(); },250);
   tourShow();
 }
 function tourKey(ev){ if(!TOUR) return; if(ev.key==='Escape'){ev.preventDefault();tourEnd();} else if(ev.key==='Enter'||ev.key==='ArrowRight'){ev.preventDefault();tourNext();} else ev.stopPropagation(); }
 function tourEnd(){
-  if(!TOUR) return; var k=TOUR.kind; TOUR.q.remove(); TOUR=null;
+  if(!TOUR) return; var T0=TOUR, k=TOUR.kind; TOUR.q.remove(); TOUR=null;
   document.removeEventListener('keydown',tourKey,true); window.removeEventListener('resize',tourPlace);
+  clearInterval(T0.tick);
   if(k==='main'&&compactUI()) openDrawer(false);
 }
 function tourNext(){ if(!TOUR) return; if(TOUR.i>=TOUR.steps.length-1){ tourEnd(); return; } TOUR.i++; tourShow(); }
@@ -4022,8 +4088,9 @@ function tourShow(){
   var go=function(){ if(TOUR!==T) return; tourPlace(); b.classList.remove('wait'); T.hole.classList.remove('wait'); nx.focus({preventScroll:true}); };
   if(moved) setTimeout(go,260); else requestAnimationFrame(go);   // 목록이 열리고 닫힐 때만 그걸 기다린다
 }
+function tourSig(){ var ts=tourTargets(TOUR.steps[TOUR.i]); return innerWidth+'x'+innerHeight+':'+ts.map(function(e){var r=e.getBoundingClientRect();return Math.round(r.left)+','+Math.round(r.top)+','+Math.round(r.width)+','+Math.round(r.height);}).join(';'); }
 function tourPlace(){
-  if(!TOUR) return; var T=TOUR, s=T.steps[T.i], ts=tourTargets(s), b=T.bub, hole=T.hole, pad=6;
+  if(!TOUR) return; var T=TOUR, s=T.steps[T.i], ts=tourTargets(s), b=T.bub, hole=T.hole, pad=6; T.sig=tourSig();
   T.q.classList.toggle('nohole',!ts.length);   // 비출 버튼이 없으면 가운데 말풍선 + 뒤 전체를 어둡게
   if(!ts.length){ hole.style.display='none'; b.style.left=Math.max(16,(innerWidth-b.offsetWidth)/2)+'px'; b.style.top=Math.max(16,(innerHeight-b.offsetHeight)/2)+'px'; $('.tq-ar',b).hidden=true; return; }
   var L=1e9,Tp=1e9,R=-1e9,B=-1e9; ts.forEach(function(e){ var r=e.getBoundingClientRect(); L=Math.min(L,r.left);Tp=Math.min(Tp,r.top);R=Math.max(R,r.right);B=Math.max(B,r.bottom); });
