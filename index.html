@@ -40,7 +40,7 @@
   ===================================================================== -->
 <script>
 window.PLOTNOTE_CONFIG = {
-  GOOGLE_CLIENT_ID: '944825289739-6lngpka1mscij52hv18s35gll9euosek.apps.googleusercontent.com',   // ← ★ Client ID (이미 입력됨)
+  GOOGLE_CLIENT_ID: '944825289739-gr122gcaq2g323f44rjqi2larq4o70ac.apps.googleusercontent.com',   // ← ★ Client ID (이미 입력됨)
   GOOGLE_API_KEY: '',                 // ← (선택) API Key. 보통 비워 두면 돼요
   DRIVE_STORAGE: 'appData',           // 'appData'(숨김 폴더) 또는 'drive'(내 드라이브에 보이게)
   FILE_NAME: 'plotnote_dev_backup.json',  // 드라이브에 만들어질 파일 이름 (기록은 plotnote_backup_history.json)
@@ -681,6 +681,11 @@ body.focus .f-marks{display:none}
 .bug-btn[hidden]{display:none}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .beta-note{color:#D9B877}}
 :root[data-theme="dark"] .beta-note{color:#D9B877}
+
+/* 설정 맨 아래: 개인정보처리방침 링크 */
+.set-foot{margin:4px 0 0;text-align:center;font-size:13px}
+.set-foot a{color:var(--ink-3);text-decoration:none}
+.set-foot a:hover{color:var(--ink-2);text-decoration:underline}
 /* 튜토리얼 */
 .tq{position:fixed;inset:0;z-index:9000}
 .tq.nohole{background:rgba(20,22,26,.62)}
@@ -858,6 +863,7 @@ body.focus .f-marks{display:none}
       <button class="btn set-trash" id="tourAgain"><span data-ico="help"></span>사용법 다시 보기</button>
       <p class="muted sm" style="margin:0">플롯노트 소개와 사용법을 내 소설 목록에 더해요.</p>
     </section>
+    <p class="set-foot" id="privFoot"><a href="privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></p>
 </div>
 </div>
 <div class="modal" id="trashM" role="dialog" aria-modal="true" aria-labelledby="trashT" hidden>
@@ -3975,7 +3981,7 @@ boot();
 /* ---------- 새 버전 알림: 깃허브에 새 버전이 올라오면 맨 위에 "새 버전이 나왔어요. [새로고침]" ----------
    열어 둔 채로 며칠씩 쓰면 예전 버전이 계속 돌아가므로, 앱으로 돌아올 때와 30분마다 sw.js의 버전을 조용히 확인한다.
    (Claude 테스트 페이지·파일 하나짜리 html에는 sw.js가 없어서 동작하지 않음) */
-var APPVER='d2f8e3aea9', verAt=0;
+var APPVER='c11cc5be1c', verAt=0;
 function verCheck(force){
   if(APPVER.indexOf('__')===0||!navigator.onLine||!/^https?:$/.test(location.protocol)) return;
   if(!force&&Date.now()-verAt<5*60000) return; verAt=Date.now();
