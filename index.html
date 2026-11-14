@@ -612,6 +612,15 @@ body.focus .fz-bar:hover,body.focus .fz-bar:focus-within{opacity:1}
 .dl-list .ic{flex:none;width:15px;height:15px;color:var(--ink-2)}
 .dl-list .n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dl-list .s{color:var(--ink-3);font-size:12px;padding-right:8px;white-space:nowrap}
+
+/* 목록 아래 버튼 4개: 아이콘마다 그림 크기가 달라서(톱니·휴지통은 칸을 꽉 채우고, 연필·화살표는 작다)
+   보이는 크기와 선 굵기를 맞춘다. 모든 아이콘은 같은 높이의 칸 가운데, 글자와의 간격도 같게 */
+.dr-foot2 .btn>[data-ico]{display:flex;align-items:center;justify-content:center;width:26px;height:22px}
+.dr-foot2 .btn{gap:5px}
+.drawer .dr-foot2 #openSet .ic{width:19px;height:19px;stroke-width:1.85}
+.drawer .dr-foot2 #delBtn .ic{width:18.5px;height:18.5px;stroke-width:1.9;transform:translateY(.5px)}
+.drawer .dr-foot2 #editBtn .ic{width:27px;height:27px;stroke-width:1.3;transform:translateY(-.5px)}
+.drawer .dr-foot2 #dlBtn .ic{width:25px;height:25px;stroke-width:1.4}
 /* 휴대폰에서도 계정 창·충돌 창은 가운데 팝업 */
 .modal#acctM,.modal#cfM{align-items:center;padding:16px}
 #acctM .modal-panel,#cfM .modal-panel{border-radius:16px;max-height:calc(100% - 32px);padding-bottom:16px}
@@ -2413,7 +2422,7 @@ function renderDrawer(){
     }
   });
   updateTotal(); editUI();
-  if(RN) requestAnimationFrame(function(){var i=$('.rn-in');if(i){i.focus();i.select();}});
+  if(RN) requestAnimationFrame(function(){var i=$('.rn-in');if(i){i.focus();i.select();rnReveal(i);}});
 }
 function updateRow(d){
   var li=$('.doc[data-id="'+d.id+'"]');
@@ -2447,6 +2456,21 @@ function addDoc(workId){
   S.activeId=d.id; persistDoc(d); persistMeta();
   resetDocUi(); loadEditor(); renderDrawer(); openDrawer(false); setTab('write');
   $('#ttl').focus();
+}
+// 이름 고치는 칸이 목록 밖(아래)에 있거나 폰 키보드에 가려지면, 목록을 그 칸 쪽으로 굴려서 보이게 한다
+function rnReveal(i){
+  function go(){
+    if(!i.isConnected||document.activeElement!==i) return;
+    i.scrollIntoView({block:'center'});
+    var vv=window.visualViewport; if(!vv) return;
+    // 아이폰·아이패드: 키보드가 올라와도 목록 높이는 그대로라 '가운데'가 키보드 밑일 수 있다 → 보이는 영역 안으로 한 번 더
+    var r=i.getBoundingClientRect(), bottom=vv.offsetTop+vv.height-24, sc=i.closest('.drawer-scroll,#docList')||i.parentElement;
+    while(sc&&sc!==document.body&&!(sc.scrollHeight>sc.clientHeight&&/(auto|scroll)/.test(getComputedStyle(sc).overflowY))) sc=sc.parentElement;
+    if(sc&&sc!==document.body&&r.bottom>bottom) sc.scrollTop+=r.bottom-bottom+Math.round(vv.height/4);
+  }
+  go(); setTimeout(go,350);   // 키보드가 올라오는 동안 화면 크기가 바뀌니 한 번 더
+  var vv=window.visualViewport; if(!vv) return;
+  vv.addEventListener('resize',go); setTimeout(function(){ vv.removeEventListener('resize',go); },1200);
 }
 function addWork(){
   if(RN) return;
@@ -3987,7 +4011,7 @@ boot();
 /* ---------- 새 버전 알림: 깃허브에 새 버전이 올라오면 맨 위에 "새 버전이 나왔어요. [새로고침]" ----------
    열어 둔 채로 며칠씩 쓰면 예전 버전이 계속 돌아가므로, 앱으로 돌아올 때와 30분마다 sw.js의 버전을 조용히 확인한다.
    (Claude 테스트 페이지·파일 하나짜리 html에는 sw.js가 없어서 동작하지 않음) */
-var APPVER='d9b08cb0c0', verAt=0;
+var APPVER='af7293df21', verAt=0;
 function verCheck(force){
   if(APPVER.indexOf('__')===0||!navigator.onLine||!/^https?:$/.test(location.protocol)) return;
   if(!force&&Date.now()-verAt<5*60000) return; verAt=Date.now();
