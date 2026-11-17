@@ -179,6 +179,9 @@ h2,h3,p{margin:0}
 /* 글자 수 줄은 항상 한 줄: 넘치면 … */
 .wk-tx{min-width:0}
 .wk-m,.doc-m{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* 화면 키보드가 떠 있을 때: 키보드 높이만큼 아래에 빈 자리(마지막 줄까지 키보드 위로 올릴 수 있게) */
+.docs::after,.sheet-scroll::after{content:"";flex:none;height:var(--kb,0px)}
 /* 버튼 */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:38px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-weight:500;white-space:nowrap}
 .btn:disabled{opacity:.45;cursor:default}
@@ -779,7 +782,7 @@ body.focus .f-marks{display:none}
           <div class="sheet-scroll">
           <div class="crumb" id="crumb"></div>
           <input class="ttl" id="ttl" placeholder="회차 제목" aria-label="회차 제목" autocomplete="off">
-          <textarea class="ed" id="ed" placeholder="여기에 이어서 써 보세요. 쓰는 대로 저절로 저장돼요." aria-label="글" spellcheck="false"></textarea>
+          <textarea class="ed" id="ed" placeholder="여기에 이어서 써 보세요. 쓰는 대로 자동으로 저장돼요." aria-label="글" spellcheck="false"></textarea>
           </div>
           <div class="wbar">
             <div class="stats" id="stats"></div>
@@ -2829,6 +2832,7 @@ function edChanged(ev){
   endFind();   // 글을 고치면 찾기는 끝
   d.text=ed.value; d.updated=Date.now(); delete d.example;
   fitFast(ev); persistDoc(d); snapTick(d); uhPush(); idleUI(d); edMode();
+  if(ed.value.length<=LONGED&&(ed.selectionEnd>=ed.value.length||(ev&&/^insert(Paragraph|LineBreak)/.test(ev.inputType)))) keepCaretSoon();   // 글 끝·엔터는 바로, 나머지는 잠깐 멈췄을 때
 }
 function edBefore(ev){
   if(ev.inputType==='historyUndo'){ev.preventDefault();uhGo(-1);}
@@ -2845,6 +2849,7 @@ function edMode(){
 }
 function edBind(){
   ['keyup','compositionend','paste','cut','drop','blur'].forEach(function(t){ ed.addEventListener(t,edSoon); });
+  ed.addEventListener('keyup',function(ev){ if(!EDLONG&&/^(Arrow(Up|Down)|Page(Up|Down))$/.test(ev.key)) keepCaretSoon(); });   // 화살표로 커서를 옮길 때도 보이게
   edMode();
 }
 /* ---------- 실행 취소 / 다시 실행 (버튼을 눌러도 키보드가 올라오지 않는다) ---------- */
@@ -2867,16 +2872,60 @@ function uhPush(force){
 function uhGo(dir){
   var d=cur(); if(!d||UH.docId!==d.id) return;
   var n=UH.i+dir; if(n<0||n>=UH.stack.length) return;
-  UH.i=n; var v=UH.stack[n].t; ed.value=v; UH.t=0;
-  edChanged(null); uhBtns();
-  try{ if(document.activeElement===ed) ed.setSelectionRange(v.length,v.length);}catch(_){}
+  UH.i=n; var old=ed.value, v=UH.stack[n].t, sc=ed.parentNode, top=sc.scrollTop;
+  // 바뀐 곳: 앞뒤로 같은 부분을 뺀 가운데. 커서는 그 끝에 둔다(예전엔 글 맨 끝으로 가서 화면이 튀었다)
+  var p=0, m=Math.min(old.length,v.length); while(p<m&&old.charCodeAt(p)===v.charCodeAt(p)) p++;
+  var q=0; while(q<m-p&&old.charCodeAt(old.length-1-q)===v.charCodeAt(v.length-1-q)) q++;
+  var pos=v.length-q;
+  ed.value=v; UH.t=0;
+  edChanged(null); uhBtns(); fitEd();
+  try{ if(document.activeElement===ed) ed.setSelectionRange(pos,pos);}catch(_){}
+  sc.scrollTop=top;   // 보던 화면 그대로
+  uhShow(pos);
 }
+// 커서(pos) 자리의 줄 위치: 글 칸 바깥 스크롤 칸(.sheet-scroll) 기준 y와 줄 높이
+function caretBox(pos){
+  var sc=ed.parentNode, cs=getComputedStyle(ed), lh=parseFloat(cs.lineHeight)||parseFloat(cs.fontSize)*1.8||30;
+  if(pos>=ed.value.length){   // 글 끝(가장 흔한 경우): 글 칸의 아래 끝에서 바로 구한다(무겁게 재지 않음). 긴 회차는 아래 여유 칸만큼 뺀다
+    return {y:ed.offsetTop+ed.offsetHeight-(parseFloat(cs.paddingBottom)||0)-(ed.value.length>LONGED?fitEd.extra||0:0)-lh, lh:lh};
+  }
+  var m=document.createElement('div');
+  ['fontFamily','fontSize','fontWeight','fontStyle','lineHeight','letterSpacing','wordSpacing','paddingTop','paddingRight','paddingBottom','paddingLeft','textIndent','wordBreak','overflowWrap','tabSize','textAlign','fontFeatureSettings','fontKerning','boxSizing','borderTopWidth','borderLeftWidth','borderRightWidth'].forEach(function(k){ m.style[k]=cs[k]; });
+  m.style.cssText+=';position:absolute;visibility:hidden;white-space:pre-wrap;left:0;top:0;width:'+ed.offsetWidth+'px';
+  m.textContent=ed.value.slice(0,pos); var mk=document.createElement('span'); mk.textContent='\u200b'; m.appendChild(mk);
+  sc.appendChild(m); var y=ed.offsetTop+mk.offsetTop, h=mk.offsetHeight||lh; m.remove();
+  return {y:y, lh:h};
+}
+// 고친 자리가 지금 화면 밖이면 그 줄이 보이게만 옮긴다(화면 안이면 그대로)
+function uhShow(pos){
+  var sc=ed.parentNode; if(!ed.getClientRects().length) return;
+  var b=caretBox(pos), y=b.y, lh=b.lh;
+  var pad=Math.min(80,sc.clientHeight/4);
+  if(y<sc.scrollTop+pad||y+lh>sc.scrollTop+sc.clientHeight-pad) sc.scrollTop=Math.max(0,y-sc.clientHeight/2);
+}
+/* 칠 때 커서가 늘 보이게: 아이패드 사파리는 엔터로 글 칸이 늘어나도 바깥 종이(.sheet-scroll)를 내려 주지 않아서
+   커서가 글자 수 줄 아래로 빠져 보인다 → 커서 줄이 보이는 칸 아래 끝(화면 키보드가 있으면 그 위)에 닿으면 그만큼만 내린다. */
+function keepCaret(){
+  if(document.activeElement!==ed||!ed.getClientRects().length) return;
+  if(ed.selectionStart!==ed.selectionEnd) return;   // 범위를 고르는 중이면 건드리지 않음
+  if(ed.value.length>LONGED&&ed.selectionEnd<ed.value.length) return;   // 아주 긴 회차는 글 끝에서만(중간 자리를 재면 무겁다)
+  var sc=ed.parentNode, b=caretBox(ed.selectionEnd), r=sc.getBoundingClientRect(), vv=window.visualViewport;
+  var bottom=Math.min(r.bottom, vv?vv.offsetTop+vv.height:window.innerHeight), h=bottom-r.top;
+  if(h<b.lh*2) return;
+  var pad=Math.min(b.lh, h/4);
+  if(b.y+b.lh+pad>sc.scrollTop+h) sc.scrollTop=b.y+b.lh+pad-h;
+  else if(b.y<sc.scrollTop) sc.scrollTop=Math.max(0,b.y-pad);
+}
+var kcRaf=0;
+function keepCaretSoon(){ cancelAnimationFrame(kcRaf); kcRaf=requestAnimationFrame(keepCaret); }
+window.__pn.caretBox=caretBox; window.__pn.keepCaret=keepCaret;   // 시험용
 function fitEd(){
   var sh=ed.parentNode;
   if(!sh||!ed.getClientRects().length){fitEd.pending=true;return;}   // 안 보이는 동안 재면 0이 되므로, 보일 때 다시 잰다
   fitEd.pending=false;
   var top=sh.scrollTop;
-  ed.style.height='auto'; ed.style.height=(ed.scrollHeight+(ed.value.length>LONGED?Math.round(sh.clientHeight*0.5):0))+'px';   // 아주 긴 회차는 아래에 여유 칸을 둔다
+  fitEd.extra=ed.value.length>LONGED?Math.round(sh.clientHeight*0.5):0;
+  ed.style.height='auto'; ed.style.height=(ed.scrollHeight+fitEd.extra)+'px';   // 아주 긴 회차는 아래에 여유 칸을 둔다
   sh.scrollTop=top;
   if(FIND.on) hlRender();
 }
@@ -2884,14 +2933,14 @@ function fitEd(){
 // 아주 긴 회차(10만 자 넘음)는 칠 때마다 높이를 재면(글 전체 줄바꿈을 다시 계산) 휴대폰에서 멈칫한다 → 손을 멈췄을 때만 잰다
 var LONGED=100000, longT=0;
 function fitFast(ev){
-  if(ed.value.length>LONGED){ clearTimeout(longT); longT=setTimeout(fitEd,1200); return; }
+  if(ed.value.length>LONGED){ clearTimeout(longT); longT=setTimeout(function(){ fitEd(); keepCaret(); },1200); return; }
   var t=ev&&ev.inputType||'';
   if(/^delete|^history/.test(t)) return;
   if(ed.scrollHeight>ed.clientHeight+1) ed.style.height=ed.scrollHeight+'px';
 }
 // 글자 수·목록 숫자·칸 높이 맞추기는 0.25초 쉬었을 때 한 번만
 var idleT=0;
-function idleUI(d){ clearTimeout(idleT); idleT=setTimeout(function(){ updateStats(); if(d&&cur()===d) updateRow(d); },EDLONG?1200:250); }   // 아주 긴 회차는 손을 멈췄을 때만
+function idleUI(d){ clearTimeout(idleT); idleT=setTimeout(function(){ updateStats(); if(d&&cur()===d) updateRow(d); if(!EDLONG&&(ed.value.length<=20000||ed.selectionEnd>=ed.value.length)) keepCaret(); },EDLONG?1200:250); }   // 아주 긴 회차는 손을 멈췄을 때만
 function fitWatch(){
   var w0=-1, raf=0;
   function soon(){ cancelAnimationFrame(raf); raf=requestAnimationFrame(function(){ if(typeof ed!=='undefined'&&ed) fitEd(); }); }
@@ -4006,12 +4055,23 @@ boot();
   window.addEventListener('focus',soon);
   window.addEventListener('orientationchange',soon);
   if(window.visualViewport) window.visualViewport.addEventListener('resize',function(){ if(!kbOpen()) soon(); });
+  // 화면 키보드가 올라오면(아이폰·아이패드·안드로이드) 화면 높이는 그대로라 글의 아래쪽이 키보드에 가려져 끝까지 못 올린다
+  // → 키보드 높이만큼 글 칸과 목록 아래에 빈 자리를 더해서, 마지막 줄까지 키보드 위로 올릴 수 있게
+  var kbLast=-1;
+  function kbPad(){
+    var vv=window.visualViewport; if(!vv) return;
+    var kb=Math.round(window.innerHeight-vv.height-vv.offsetTop); if(kb<120) kb=0;
+    if(kb!==kbLast){ kbLast=kb; document.documentElement.style.setProperty('--kb',kb+'px'); }
+  }
+  if(window.visualViewport){ window.visualViewport.addEventListener('resize',kbPad); window.visualViewport.addEventListener('scroll',kbPad); }
+  document.addEventListener('focusin',function(){ setTimeout(kbPad,350); });
+  document.addEventListener('focusout',function(){ setTimeout(kbPad,350); });
   document.addEventListener('focusout',function(){ setTimeout(function(){ if(!document.activeElement||document.activeElement===document.body) reset(); },120); });
 })();
 /* ---------- 새 버전 알림: 깃허브에 새 버전이 올라오면 맨 위에 "새 버전이 나왔어요. [새로고침]" ----------
    열어 둔 채로 며칠씩 쓰면 예전 버전이 계속 돌아가므로, 앱으로 돌아올 때와 30분마다 sw.js의 버전을 조용히 확인한다.
    (Claude 테스트 페이지·파일 하나짜리 html에는 sw.js가 없어서 동작하지 않음) */
-var APPVER='af7293df21', verAt=0;
+var APPVER='e72c4f3829', verAt=0;
 function verCheck(force){
   if(APPVER.indexOf('__')===0||!navigator.onLine||!/^https?:$/.test(location.protocol)) return;
   if(!force&&Date.now()-verAt<5*60000) return; verAt=Date.now();
