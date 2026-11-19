@@ -4164,7 +4164,19 @@ boot();
     if(window.scrollX||window.scrollY) window.scrollTo(0,0);
     if(document.scrollingElement&&document.scrollingElement.scrollTop) document.scrollingElement.scrollTop=0;
   }
-  function soon(){ setTimeout(reset,50); setTimeout(reset,400); }
+  function soon(){ setTimeout(reset,50); setTimeout(reset,400); setTimeout(reset,1000); setTimeout(reset,2000); }   // 사파리가 커서를 되살리며 늦게 옮기는 경우까지
+  /* 화면 전체가 밀리는 순간 바로 제자리로: 아이패드 사파리는 글 칸에 커서가 있으면 커서를 보이려고 화면 전체를 옮긴다
+     (다른 앱에 갔다 오거나, 블루투스 키보드로 쓰는 중에). 플롯노트 화면 전체는 원래 움직이지 않으니, 밀리면 바로 되돌린다.
+     화면 키보드가 정말 올라와 있을 때(입력 줄을 보이게 옮긴 것)와 손가락으로 확대해 둔 때는 그대로 둔다.
+     블루투스 키보드의 작은 단축키 막대는 키보드로 치지 않는다(높이 120 미만). */
+  var pinRaf=0;
+  function pin(){
+    var vv=window.visualViewport;
+    if(kbOpen()||(vv&&vv.scale>1.01)) return;
+    if(!(window.scrollX||window.scrollY||(document.scrollingElement&&document.scrollingElement.scrollTop))) return;
+    cancelAnimationFrame(pinRaf); pinRaf=requestAnimationFrame(reset);
+  }
+  window.addEventListener('scroll',pin,{passive:true});
   document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible') soon(); });
   window.addEventListener('pageshow',soon);
   window.addEventListener('focus',soon);
@@ -4186,7 +4198,7 @@ boot();
 /* ---------- 새 버전 알림: 깃허브에 새 버전이 올라오면 맨 위에 "새 버전이 나왔어요. [새로고침]" ----------
    열어 둔 채로 며칠씩 쓰면 예전 버전이 계속 돌아가므로, 앱으로 돌아올 때와 30분마다 sw.js의 버전을 조용히 확인한다.
    (Claude 테스트 페이지·파일 하나짜리 html에는 sw.js가 없어서 동작하지 않음) */
-var APPVER='e0aaedb0ed', verAt=0;
+var APPVER='c7c7cec19c', verAt=0;
 function verCheck(force){
   if(APPVER.indexOf('__')===0||!navigator.onLine||!/^https?:$/.test(location.protocol)) return;
   if(!force&&Date.now()-verAt<5*60000) return; verAt=Date.now();
