@@ -2941,7 +2941,7 @@ window.__pn.caretBox=caretBox; window.__pn.keepCaret=keepCaret; window.__pn.page
 /* Page Up/Down: 워드처럼 종이를 한 화면(두 줄 겹치게)만큼 넘기고, 커서도 같은 높이만큼 옮겨 화면 속 같은 자리에 둔다.
    글 칸은 글 길이만큼 늘어나 있어서 브라우저 기본 동작으로는 종이가 안 넘어가거나 커서가 제자리에 남는다.
    커서 자리↔글자 위치는 커서 앞뒤 몇 화면 분량의 글만 따라 그린 칸에서 찾는다(회차가 아무리 길어도, 한 문단이 아주 길어도 누를 때마다 같은 양만).
-   종이는 0.22초 동안 부드럽게 미끄러진다(빠르게 출발해 천천히 멈춤). 기기의 "동작 줄이기"가 켜져 있으면 바로 넘어간다. */
+   종이는 0.36초 동안 부드럽게 미끄러진다(천천히 출발해 천천히 멈춤, 미끄러지는 중에 또 누르면 출발 없이 이어서). 기기의 "동작 줄이기"가 켜져 있으면 바로 넘어간다. */
 function pageMap(from,to){
   var sc=ed.parentNode, cs=getComputedStyle(ed), m=document.createElement('div');
   ['fontFamily','fontSize','fontWeight','fontStyle','lineHeight','letterSpacing','wordSpacing','paddingRight','paddingLeft','textIndent','wordBreak','overflowWrap','tabSize','textAlign','fontFeatureSettings','fontKerning','boxSizing','borderLeftWidth','borderRightWidth','borderLeftStyle','borderRightStyle'].forEach(function(k){ m.style[k]=cs[k]; });
@@ -2985,14 +2985,15 @@ function pageStop(){ if(pgAnim){ cancelAnimationFrame(pgAnim.raf); ed.parentNode
 function pageGlide(to){
   var sc=ed.parentNode, reduce=false;
   try{ reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(_){}
+  var going=!!pgAnim;   // 이미 미끄러지는 중이면 속도를 이어 가도록 천천히 출발하지 않는다
   if(pgAnim){ cancelAnimationFrame(pgAnim.raf); }
   var from=sc.scrollTop;
   if(reduce||Math.abs(to-from)<2){ sc.scrollTop=to; pgAnim=null; return; }
-  var t0=performance.now(), D=220;
+  var t0=performance.now(), D=360;
   pgAnim={to:to,raf:0};
   var step=function(now){
     if(!pgAnim) return;
-    var k=Math.min(1,(now-t0)/D), e=1-Math.pow(1-k,3);   // 빠르게 출발해 천천히 멈춤
+    var k=Math.min(1,(now-t0)/D), e=going?1-Math.pow(1-k,3):(k<.5?4*k*k*k:1-Math.pow(-2*k+2,3)/2);   // 처음: 천천히 출발해 천천히 멈춤 · 이어서: 바로 이어 가다 천천히 멈춤
     sc.scrollTop=from+(to-from)*e;   // 매 장면 위치를 직접 정해서, 커서를 보이려는 브라우저 스크롤에 끌려가지 않음
     if(k<1) pgAnim.raf=requestAnimationFrame(step); else pgAnim=null;
   };
@@ -4185,7 +4186,7 @@ boot();
 /* ---------- 새 버전 알림: 깃허브에 새 버전이 올라오면 맨 위에 "새 버전이 나왔어요. [새로고침]" ----------
    열어 둔 채로 며칠씩 쓰면 예전 버전이 계속 돌아가므로, 앱으로 돌아올 때와 30분마다 sw.js의 버전을 조용히 확인한다.
    (Claude 테스트 페이지·파일 하나짜리 html에는 sw.js가 없어서 동작하지 않음) */
-var APPVER='59eec3509e', verAt=0;
+var APPVER='e0aaedb0ed', verAt=0;
 function verCheck(force){
   if(APPVER.indexOf('__')===0||!navigator.onLine||!/^https?:$/.test(location.protocol)) return;
   if(!force&&Date.now()-verAt<5*60000) return; verAt=Date.now();
