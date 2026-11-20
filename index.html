@@ -3009,8 +3009,16 @@ function pageMove(dir){
     pos=pt?ed.__ce.offsetOf(pt.node,pt.off):-1;
     sc.scrollTop=keep;
     if(pos<0) pos=dir>0?ed.value.length:0;
+    // 커서가 화면 안에 있었으면, 새 자리의 커서가 화면 속 같은 높이에 오도록 넘길 양을 맞춘다
+    // (찾은 자리가 문단 사이 빈 간격에 걸려 몇 px씩 어긋나는 게 쌓이지 않게)
+    var off=(pageMove.last===ed.selectionEnd&&pageMove.off!=null)?pageMove.off:c.y-base;   // 이어서 누르면 처음 높이를 그대로 써서 소수점 오차도 쌓이지 않게
+    if(off>=-1&&off+c.lh<=h+1){
+      var t2=Math.max(0,Math.min(maxTop,Math.round(caretBox(pos).y-off)));   // 정수로(소수 자리가 기기마다 다르게 잘려 쌓이지 않게)
+      if((t2-base)*dir>0) newTop=t2;
+      pageMove.off=off;
+    } else pageMove.off=null;
   }
-  ed.setSelectionRange(pos,pos);
+  ed.setSelectionRange(pos,pos); pageMove.last=ed.selectionEnd;
   sc.scrollTop=keep;   // 커서를 옮기며 브라우저가 화면을 끌고 가지 않게
   pageGlide(newTop);
 }
@@ -3083,7 +3091,7 @@ function openFMenu(anchor){
     var r=document.createElement('span'); r.className='fmr';
     if(F.k===cur) r.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>';
     b.append(r);
-    b.addEventListener('click',function(){S.prefs.font=F.k;applyPrefs();saveLS();closeFMenu();});
+    b.addEventListener('click',function(){S.prefs.font=F.k;viewStore();applyPrefs();saveLS();closeFMenu();});
     m.append(b);
   });
   m.addEventListener('pointerdown',function(e){e.preventDefault();});
@@ -3100,7 +3108,7 @@ function openFMenu(anchor){
   window.addEventListener('resize',closeFMenu);
 }
 function applyPrefs(){
-  var P=viewPrefs();
+  viewRestore(); var P=viewPrefs();
   ed.style.fontSize=P.size+'px';
   ed.style.lineHeight=String(VIEW_LH[P.lh]);
   ed.style.setProperty('--pgap',VIEW_PG[P.pg]+'em');
@@ -3219,7 +3227,7 @@ function ceInstall(root){
     var L=0; for(;c;c=c.nextSibling){ if(c.nodeType!==3||c.data.indexOf('\n')>=0) return false; L+=c.data.length; }
     return L>0;
   }
-  function pLen(n){ var c=n.firstChild; if(!c||c.nodeType!==3) return 0; var L=0; for(;c;c=c.nextSibling) L+=c.data.length; return L; }
+  function pLen(n){ var L=0; for(var c=n.firstChild;c;c=c.nextSibling) if(c.nodeType===3) L+=c.data.length; return L; }   // 정돈 전(브라우저가 잠깐 만든 모양)이어도 글자 마디만 센다
   // 글자로 읽기. tgt={node,off}가 있으면 그 자리의 글자 위치(hit)도 구한다. build=false면 위치만 세고 멈춤
   function serial(tgt,build){
     var out=build?[]:null, cur='', curLen=-1, acc=0, hit=-1, stop=false;
@@ -3281,11 +3289,12 @@ function ceInstall(root){
     var acc=0, c=root.firstChild;
     for(;c;c=c.nextSibling){
       var L=pLen(c);
-      if(pos<=acc+L){ if(!L) return {node:c,off:0}; var k=pos-acc; for(var t=c.firstChild;t;t=t.nextSibling){ if(k<=t.data.length&&(k<t.data.length||!t.nextSibling)) return {node:t,off:k}; k-=t.data.length; } }
+      if(pos<=acc+L){ if(!L) return {node:c,off:0}; var k=pos-acc, lt=null; for(var t=c.firstChild;t;t=t.nextSibling){ if(t.nodeType!==3) continue; lt=t; if(k<t.data.length) return {node:t,off:k}; k-=t.data.length; } if(lt) return {node:lt,off:lt.data.length}; }
       acc+=L+1;
     }
     c=root.lastChild; if(!c) return {node:root,off:0};
-    var tl=c.lastChild; return (tl&&tl.nodeType===3)?{node:tl,off:tl.data.length}:{node:c,off:0};
+    for(var tl=c.lastChild;tl;tl=tl.previousSibling) if(tl.nodeType===3) return {node:tl,off:tl.data.length};
+    return {node:c,off:0};
   }
   function para(t){
     var d=document.createElement('div');
@@ -3401,7 +3410,7 @@ function ceInstall(root){
   root.addEventListener('paste',function(ev){
     var cd=ev.clipboardData; if(!cd) return;
     ev.preventDefault();
-    var t=cd.getData('text/plain'); if(!t&&!cd.types.length) return;
+    var t=cd.getData('text/plain'); if(!t) return;   // 붙일 글자가 없으면(이미지만 있는 등) 아무 일도 하지 않음: 고른 글은 그대로
     var s=curSel(); insert(t,s.a,s.b);
   });
   function copyOut(ev,cut){
@@ -3455,6 +3464,10 @@ function cePointAt(x,y){
 var VIEW_SIZES=[14,15,17,19,21,23,25,27,30], VIEW_LH=[1.4,1.5,1.65,1.8,2,2.2,2.4], VIEW_PG=[0,.3,.6,.9,1.2,1.6,2], VIEW_IND=[0,.5,1,1.5,2];
 var VIEW_DEF={size:17,lh:3,pg:0,ind:0,font:'serif'};
 var VW={pop:null,dim:null,sheet:false,edFoc:false,raf:0,next:null};
+// 바꾸자마자 새로고침해도 남게: 이 다섯 가지는 바꾸는 순간 작은 저장소(localStorage)에도 적어 두고, 열 때 그 값을 쓴다
+var VIEWKEY=KEY+':view';
+function viewStore(){ try{ var p=S.prefs; localStorage.setItem(VIEWKEY,JSON.stringify({size:p.size,font:p.font,lh:p.lh,pg:p.pg,ind:p.ind})); }catch(_){} }
+function viewRestore(){ try{ var o=JSON.parse(localStorage.getItem(VIEWKEY)||'null'); if(o&&typeof o==='object') ['size','font','lh','pg','ind'].forEach(function(k){ if(o[k]!=null) S.prefs[k]=o[k]; }); }catch(_){} }
 function vIdx(a,v){ var b=0; for(var i=1;i<a.length;i++) if(Math.abs(a[i]-v)<Math.abs(a[b]-v)) b=i; return b; }
 function vClamp(v,n,d){ v=parseInt(v,10); return isNaN(v)?d:Math.max(0,Math.min(n-1,v)); }
 function viewPrefs(){
@@ -3471,13 +3484,15 @@ function viewKeep(fn){
   var sc=ed.parentNode, at=-1, off=0;
   if(ed.getClientRects().length){
     var r=sc.getBoundingClientRect(), er=ed.getBoundingClientRect();
+    var dm=VW.dim; if(dm) dm.style.display='none';   // 폰: 설정 판 뒤 어두운 막이 글자를 가리지 않게(같은 순간에 되돌려서 화면엔 안 보임)
     if(er.top<r.top+8){ var pt=cePointAt(er.left+(er.width>40?20:2), r.top+8); if(pt&&ed.contains(pt.node)){ at=ed.__ce.offsetOf(pt.node,pt.off); if(at>=0) off=caretBox(at).y-sc.scrollTop; } }
+    if(dm) dm.style.display='';
   }
   fn();
   if(at>=0) sc.scrollTop=Math.max(0,caretBox(at).y-off);
 }
 function viewSet(fn){
-  fn(); VW.next=true;
+  fn(); viewStore(); VW.next=true;
   if(VW.raf) return;
   VW.raf=requestAnimationFrame(function(){ VW.raf=0; if(!VW.next) return; VW.next=null; viewKeep(applyPrefs); saveLS(); });
 }
@@ -4568,7 +4583,7 @@ boot();
 /* ---------- 새 버전 알림: 깃허브에 새 버전이 올라오면 맨 위에 "새 버전이 나왔어요. [새로고침]" ----------
    열어 둔 채로 며칠씩 쓰면 예전 버전이 계속 돌아가므로, 앱으로 돌아올 때와 30분마다 sw.js의 버전을 조용히 확인한다.
    (Claude 테스트 페이지·파일 하나짜리 html에는 sw.js가 없어서 동작하지 않음) */
-var APPVER='615eb6d6b3', verAt=0;
+var APPVER='f2bf27d4e2', verAt=0;
 function verCheck(force){
   if(APPVER.indexOf('__')===0||!navigator.onLine||!/^https?:$/.test(location.protocol)) return;
   if(!force&&Date.now()-verAt<5*60000) return; verAt=Date.now();
