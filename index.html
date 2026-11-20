@@ -4594,8 +4594,17 @@ boot();
   function kbOpen(){ var vv=window.visualViewport; return !!vv&&vv.height<window.innerHeight-120; }
   function reset(){
     if(kbOpen()) return;   // 키보드가 떠 있을 땐 사파리가 입력 줄을 보이게 하려고 옮긴 것이니 두기
+    var moved=Math.max(window.scrollY||0,(document.scrollingElement&&document.scrollingElement.scrollTop)||0);
     if(window.scrollX||window.scrollY) window.scrollTo(0,0);
     if(document.scrollingElement&&document.scrollingElement.scrollTop) document.scrollingElement.scrollTop=0;
+    // 사파리가 화면 전체를 민 건 커서가 화면 아래(블루투스 키보드 단축키 막대 근처)에 너무 붙었다고 봐서다.
+    // 되돌리기만 하면 사파리가 곧바로 또 밀어서 위아래로 계속 흔들렸다 →
+    // 사파리가 민 만큼 글 종이 쪽을 대신 올려서, 커서가 사파리가 원하던 높이에 오게 한다(다시 밀 까닭이 없게)
+    if(moved>0&&typeof ed!=='undefined'&&ed&&document.activeElement===ed&&typeof caretBox==='function'){
+      var vv=window.visualViewport, sc=ed.parentNode, b=caretBox(ed.selectionEnd);
+      var bot=b.y-sc.scrollTop+sc.getBoundingClientRect().top+b.lh, vb=vv?vv.offsetTop+vv.height:window.innerHeight;
+      if(bot>vb-moved-b.lh) sc.scrollTop+=moved;   // 커서가 아래쪽에 있을 때만(다른 까닭으로 밀린 건 되돌리기만)
+    }
   }
   function soon(){ setTimeout(reset,50); setTimeout(reset,400); setTimeout(reset,1000); setTimeout(reset,2000); }   // 사파리가 커서를 되살리며 늦게 옮기는 경우까지
   /* 화면 전체가 밀리는 순간 바로 제자리로: 아이패드 사파리는 글 칸에 커서가 있으면 커서를 보이려고 화면 전체를 옮긴다
@@ -4641,7 +4650,7 @@ boot();
 /* ---------- 새 버전 알림: 깃허브에 새 버전이 올라오면 맨 위에 "새 버전이 나왔어요. [새로고침]" ----------
    열어 둔 채로 며칠씩 쓰면 예전 버전이 계속 돌아가므로, 앱으로 돌아올 때와 30분마다 sw.js의 버전을 조용히 확인한다.
    (Claude 테스트 페이지·파일 하나짜리 html에는 sw.js가 없어서 동작하지 않음) */
-var APPVER='6c65be5589', verAt=0;
+var APPVER='c12c2ba288', verAt=0;
 function verCheck(force){
   if(APPVER.indexOf('__')===0||!navigator.onLine||!/^https?:$/.test(location.protocol)) return;
   if(!force&&Date.now()-verAt<5*60000) return; verAt=Date.now();
