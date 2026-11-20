@@ -624,9 +624,10 @@ body.focus .fz-bar:hover,body.focus .fz-bar:focus-within{opacity:1}
 .drawer .dr-foot2 #delBtn .ic{width:18.5px;height:18.5px;stroke-width:1.9;transform:translateY(.5px)}
 .drawer .dr-foot2 #editBtn .ic{width:27px;height:27px;stroke-width:1.3;transform:translateY(-.5px)}
 .drawer .dr-foot2 #dlBtn .ic{width:25px;height:25px;stroke-width:1.4}
-/* 휴대폰에서도 계정 창·충돌 창은 가운데 팝업 */
-.modal#acctM,.modal#cfM{align-items:center;padding:16px}
-#acctM .modal-panel,#cfM .modal-panel{border-radius:16px;max-height:calc(100% - 32px);padding-bottom:16px}
+/* 휴대폰에서도 계정 창·충돌 창·공지 창은 가운데 팝업 */
+.modal#acctM,.modal#cfM,.modal#ntM{align-items:center;padding:16px}
+#acctM .modal-panel,#cfM .modal-panel,#ntM .modal-panel{border-radius:16px;max-height:calc(100% - 32px);padding-bottom:16px}
+#ntM .modal-panel{overflow-y:auto}
 /* 검색 */
 :root{--hl:#F3E3A6;--hl-cur:#E2B93B;--hl-mark:#D4AE3E}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--hl:#5A4F2A;--hl-cur:#8E7424;--hl-mark:#B8962F}}
@@ -4650,7 +4651,7 @@ boot();
 /* ---------- 새 버전 알림: 깃허브에 새 버전이 올라오면 맨 위에 "새 버전이 나왔어요. [새로고침]" ----------
    열어 둔 채로 며칠씩 쓰면 예전 버전이 계속 돌아가므로, 앱으로 돌아올 때와 30분마다 sw.js의 버전을 조용히 확인한다.
    (Claude 테스트 페이지·파일 하나짜리 html에는 sw.js가 없어서 동작하지 않음) */
-var APPVER='c12c2ba288', verAt=0;
+var APPVER='caa1e4f889', verAt=0;
 function verCheck(force){
   if(APPVER.indexOf('__')===0||!navigator.onLine||!/^https?:$/.test(location.protocol)) return;
   if(!force&&Date.now()-verAt<5*60000) return; verAt=Date.now();
