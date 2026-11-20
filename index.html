@@ -778,6 +778,28 @@ body.focus .f-marks{display:none}
 .sheet{--padx:clamp(18px,4.5vw,52px);padding-left:0;padding-right:0}
 .sheet-scroll{padding-left:var(--padx);padding-right:var(--padx)}
 .sheet .wbar{margin-left:var(--padx);margin-right:var(--padx)}
+/* 공지 창 · 설정의 공지 목록 */
+.nt-panel{gap:0}
+@media (min-width:600px){.nt-panel{width:min(100%,28rem)}}
+.nt-top{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px}
+.nt-card>.nt-top{min-height:40px}
+.nt-badge{font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--surface-2);color:var(--ink-2);white-space:nowrap}
+.nt-badge.imp{background:#e5484d;color:#fff}
+.nt-title{margin:0;text-align:center;font-size:17.5px;font-weight:700;line-height:1.4;overflow-wrap:anywhere}
+.nt-list .nt-top{grid-template-columns:auto 1fr auto}
+.nt-list .nt-top::after{content:"";width:1px}
+.nt-date{font-size:13px;color:var(--ink-3);margin-top:12px}
+.nt-body{font-size:15px;line-height:1.7;margin:6px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.nt-bk{margin-top:14px;display:inline-flex;align-items:center;gap:6px}
+.nt-day{display:flex;align-items:center;gap:8px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line);font-size:14px;color:var(--ink-2);cursor:pointer}
+.nt-day input{width:18px;height:18px;margin:0;accent-color:var(--accent-line)}
+.nt-list .nt-card{border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:var(--surface);flex:none}
+.nt-list .nt-title{font-size:16px}
+.nt-list .nt-body{font-size:14.5px}
+.nt-none{text-align:center;padding:24px 0}
+.nt-cnt{margin-left:auto;font-size:12px;font-weight:700;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--accent-soft);color:var(--accent-text);display:inline-grid;place-items:center}
+.nt-cnt+.set-go{margin-left:6px}
+.nt-panel:focus{outline:none}
 </style>
 <style>.brand{display:flex;align-items:center;gap:8px}.dev-badge{flex:none;display:inline-flex;align-items:center;height:22px;margin-right:6px;font-size:11.5px;font-weight:700;line-height:1;padding:1px 8px 0;border-radius:999px;background:#E9EEF4;color:#465866;letter-spacing:.02em}:root[data-theme="dark"] .dev-badge{background:#33404D;color:#C9D6E3}@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .dev-badge{background:#33404D;color:#C9D6E3}}</style>
 </head>
@@ -885,6 +907,9 @@ body.focus .f-marks{display:none}
   <div class="modal-panel">
     <div class="m-head"><button class="ib" id="setX" aria-label="설정 닫기" title="돌아가기" data-ico="back"></button><h2 id="setT">설정</h2><span></span></div>
     <section class="set-sec" id="donSec" hidden><div class="don-card"><span class="don-cup" data-ico="coffee"></span><div class="don-body"><b>플롯노트에게 커피 한 잔</b><p>플롯노트는 혼자 만들고 있어요. 보내 주신 커피 한 잔이 다음 기능을 만드는 힘이 돼요.</p><a class="don-btn" id="donBtn" target="_blank" rel="noopener"><span data-ico="coffee"></span>커피 한 잔 보내기</a></div></div></section>
+    <section class="set-sec"><h3>공지</h3>
+      <button class="btn set-trash" id="ntOpen"><span data-ico="bell"></span><span>공지 보기</span><span class="nt-cnt" id="ntCnt" hidden>0</span><span class="set-go" data-ico="chevr"></span></button>
+    </section>
     <section class="set-sec"><h3>화면 테마</h3>
       <div class="seg set-seg" id="themeSeg" role="group" aria-label="화면 테마"><button data-theme-set="light" aria-pressed="false">라이트</button><button data-theme-set="dark" aria-pressed="false">다크</button><button data-theme-set="system" aria-pressed="true">시스템</button></div>
     </section>
@@ -916,6 +941,15 @@ body.focus .f-marks{display:none}
     </section>
     <p class="set-foot" id="privFoot"><a href="privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></p>
 </div>
+</div>
+<div class="modal" id="ntM" role="dialog" aria-modal="true" aria-labelledby="ntT" hidden>
+  <div class="modal-panel nt-panel" id="ntPanel"></div>
+</div>
+<div class="modal" id="ntListM" role="dialog" aria-modal="true" aria-labelledby="ntListT" hidden>
+  <div class="modal-panel">
+    <div class="m-head"><button class="ib" id="ntListX" aria-label="공지 닫기" title="돌아가기" data-ico="back"></button><h2 id="ntListT">공지</h2><span></span></div>
+    <div class="m-list nt-list" id="ntList"></div>
+  </div>
 </div>
 <div class="modal" id="trashM" role="dialog" aria-modal="true" aria-labelledby="trashT" hidden>
   <div class="modal-panel">
@@ -1209,6 +1243,7 @@ var ICONS={
   help:'<circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.4a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.1-2.4 3.6"/><circle cx="12" cy="16.9" r=".6" fill="currentColor"/>',
   coffee:'<path d="M5 9h11v5a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5V9z"/><path d="M16 10.5h1.5a2.5 2.5 0 0 1 0 5H16"/><path d="M8.5 3.5c-.6.8.6 1.5 0 2.5M11.5 3.5c-.6.8.6 1.5 0 2.5"/>',
   tsize:'<path d="M3 6h11M8.5 6v13M13 11h8M17 11v8"/>',
+  bell:'<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4l2-2zM10 21h4"/>',
   clock:'<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>',
   check:'<path d="M5 12l5 5 9-10"/>',
   chevd:'<path d="M6 9l6 6 6-6"/>',
@@ -3009,8 +3044,15 @@ function pageMove(dir){
     var c=caretBox(ed.selectionEnd), er=ed.getBoundingClientRect();
     var ty=Math.max(newTop+lh/2, Math.min(newTop+h-lh/2, c.y+moved+c.lh/2));   // 종이가 넘어간 만큼 커서도(화면 밖이면 화면 안으로)
     sc.scrollTop=newTop;
-    var top0=sc.getBoundingClientRect().top, x=Math.max(er.left+2,Math.min(er.right-2,c.x)), pt=cePointAt(x, top0+(ty-newTop));
-    pos=pt?ed.__ce.offsetOf(pt.node,pt.off):-1;
+    var top0=sc.getBoundingClientRect().top, x=Math.max(er.left+2,Math.min(er.right-2,c.x));
+    // 그 높이가 문단 사이 빈 간격이면 브라우저가 늘 아래 줄을 골라 Page Up만 덜 넘어갔다 →
+    // 위·가운데·아래 세 군데를 재서 줄 가운데가 목표 높이에 가장 가까운 자리를 고른다(위아래 같은 양으로)
+    pos=-1; var best=1e9;
+    [0,-c.lh*0.75,c.lh*0.75].forEach(function(dy){
+      var yy=Math.max(newTop+1,Math.min(newTop+h-1,ty+dy)), pt=cePointAt(x, top0+(yy-newTop)); if(!pt) return;
+      var q=ed.__ce.offsetOf(pt.node,pt.off); if(q<0) return;
+      var dd=Math.abs(caretBox(q).y+c.lh/2-ty); if(dd<best-0.5){ best=dd; pos=q; }
+    });
     sc.scrollTop=keep;
     if(pos<0) pos=dir>0?ed.value.length:0;
     // 커서가 화면 안에 있었으면, 새 자리의 커서가 화면 속 같은 높이에 오도록 넘길 양을 맞춘다
@@ -4526,7 +4568,7 @@ function boot2(ls){
   applyCur(); tabInit(); bindOnce(); showAll();
   // 브라우저가 저장 공간이 부족할 때 이 사이트 글을 지우지 않도록 요청(파이어폭스는 창이 떠서 하지 않음)
   try{ if(navigator.storage&&navigator.storage.persist&&!/Firefox/.test(navigator.userAgent)) navigator.storage.persisted().then(function(p){if(!p)navigator.storage.persist();}).catch(function(){}); }catch(_){}
-  bootDone=true; purgeExpired(); saveLSNow(); renderConf(false); bindVer(); bindBeta(); setTimeout(function(){tourMaybe('main');},700);
+  bootDone=true; purgeExpired(); saveLSNow(); renderConf(false); bindVer(); bindBeta(); bindNotice(); setTimeout(function(){tourMaybe('main');},700);
   renderAcctBtn(); initTc();
   if(A.on){ if(Date.now()>A.exp){setY('reauth');silentRenew('boot');} else {syncNow('launch',true);scheduleRenew();} }
   else if(!isGuest()) showGate('login');
@@ -4600,7 +4642,7 @@ boot();
 /* ---------- 새 버전 알림: 깃허브에 새 버전이 올라오면 맨 위에 "새 버전이 나왔어요. [새로고침]" ----------
    열어 둔 채로 며칠씩 쓰면 예전 버전이 계속 돌아가므로, 앱으로 돌아올 때와 30분마다 sw.js의 버전을 조용히 확인한다.
    (Claude 테스트 페이지·파일 하나짜리 html에는 sw.js가 없어서 동작하지 않음) */
-var APPVER='bb783adfc6', verAt=0;
+var APPVER='c196ca4e02', verAt=0;
 function verCheck(force){
   if(APPVER.indexOf('__')===0||!navigator.onLine||!/^https?:$/.test(location.protocol)) return;
   if(!force&&Date.now()-verAt<5*60000) return; verAt=Date.now();
@@ -4749,6 +4791,102 @@ function tourMaybe(kind){   // 처음이면 띄운다(창이 떠 있으면 닫�
   tourStart(kind);
 }
 function tourAgain(){ closeSet(); tourMark('board',0); tourMark('main',0); if(S.prefs.tab!=='write') setTab('write'); setTimeout(function(){tourStart('main');},200); }
+/* ---------- 공지: 사이트에 올린 notice.json 을 읽어 띄운다 (공지 작성 도구로 만든 파일) ----------
+   - 공지: 한 번 뜨고, 닫으면 다시 안 뜬다.
+   - 중요: 앱을 열 때마다 뜬다. 「오늘 하루 보지 않기」에 체크하고 닫으면 그날(이 기기 날짜)은 다시 안 뜬다.
+   - 설정 → 공지 보기: 지금 진행 중인(시작~끝 사이) 공지를 다시 볼 수 있다. 끝난 공지는 보이지 않는다.
+   - notice.json 이 없거나(404) 인터넷이 안 되면 아무것도 하지 않는다.
+   - 파일은 공지 하나({id,level,title,body,backup,start,end}) 또는 여러 개({notices:[…]}) 둘 다 읽는다. */
+var NT={list:[],queue:[],cur:null,at:0};
+var NTSEEN=KEY+':ntSeen', NTDAY=KEY+':ntDay';
+function ntToday(){ var d=new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
+function ntLS(k,d){ try{ var v=JSON.parse(localStorage.getItem(k)||'null'); return v==null?d:v; }catch(_){ return d; } }
+function ntSet(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(_){} }
+function ntParse(o){
+  var arr=o&&Array.isArray(o.notices)?o.notices:(o&&o.id?[o]:[]), now=Date.now(), out=[];
+  arr.forEach(function(n){
+    if(!n||typeof n!=='object'||!n.id||!(n.title||n.body)) return;
+    var s=Date.parse(n.start||''), e=Date.parse(n.end||'');
+    if((!isNaN(s)&&now<s)||(!isNaN(e)&&now>e)) return;   // 아직이거나 끝남
+    out.push({id:String(n.id),imp:n.level==='important',title:String(n.title||''),body:String(n.body||''),backup:!!n.backup,start:isNaN(s)?0:s,end:isNaN(e)?0:e});
+  });
+  out.sort(function(a,b){ return (b.imp-a.imp)||(b.start-a.start); });   // 중요 먼저
+  return out;
+}
+function ntRange(n){
+  function f(t){ var d=new Date(t); return (d.getMonth()+1)+'월 '+d.getDate()+'일'; }
+  return n.start&&n.end?f(n.start)+' ~ '+f(n.end):n.end?'~ '+f(n.end):n.start?f(n.start)+' ~':'';
+}
+// 공지 한 개의 모양(창과 설정 목록에서 같이 씀)
+function ntCard(n,inModal){
+  var top=h('div',{class:'nt-top'},h('span',{class:'nt-badge'+(n.imp?' imp':''),text:n.imp?'중요':'공지'}),h('h2',{class:'nt-title',id:inModal?'ntT':null,text:n.title}));
+  var box=h('div',{class:'nt-card'},top);
+  var dt=ntRange(n); if(dt) box.append(h('div',{class:'nt-date',text:dt}));
+  if(n.body) box.append(h('p',{class:'nt-body',text:n.body}));
+  if(n.backup){ var bb=h('button',{class:'btn nt-bk',type:'button'},h('span',{'data-ico':'download'}),document.createTextNode('백업 파일 받기')); bb.addEventListener('click',exportBackup); box.append(bb); }
+  return box;
+}
+function ntLoad(){
+  if(!/^https?:$/.test(location.protocol)) return Promise.resolve();
+  NT.at=Date.now();
+  return fetch('notice.json?t='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.json():null; }).then(function(o){
+    NT.list=ntParse(o); ntCount();
+  }).catch(function(){});
+}
+function ntCount(){ var c=$('#ntCnt'); if(c){ c.textContent=NT.list.length; c.hidden=!NT.list.length; } }
+// 앱을 열 때 띄울 것 고르기
+function ntPick(){
+  var seen=ntLS(NTSEEN,[]), day=ntLS(NTDAY,{}), today=ntToday();
+  NT.queue=NT.list.filter(function(n){ return n.imp?day[n.id]!==today:seen.indexOf(n.id)<0; });
+  ntNext();
+}
+function ntBusy(){   // 로그인 화면·사용법 안내·다른 창이 떠 있으면 기다린다
+  if($('#gate')&&!$('#gate').hidden) return true;
+  if($('#tq')) return true;
+  return $$('.modal').some(function(m){ return !m.hidden&&m.id!=='ntM'; });
+}
+function ntNext(){
+  if(NT.cur||!NT.queue.length) return;
+  if(ntBusy()){ setTimeout(ntNext,1500); return; }
+  var n=NT.queue.shift(); NT.cur=n;
+  var m=$('#ntM'), p=$('#ntPanel'); p.textContent='';
+  var card=ntCard(n,true);
+  var x=h('button',{class:'ib nt-x',type:'button','aria-label':'공지 닫기',title:'닫기','data-ico':'x'}); x.addEventListener('click',ntClose);
+  card.querySelector('.nt-top').append(x);
+  if(n.imp){ var cb=h('input',{type:'checkbox',id:'ntDay'}); card.append(h('label',{class:'nt-day'},cb,document.createTextNode('오늘 하루 보지 않기'))); }
+  p.append(card); fillIcons(p);
+  m.hidden=false; p.setAttribute('tabindex','-1'); p.focus({preventScroll:true});   // 키보드로 치던 글자가 뒤의 글 칸에 들어가지 않게
+}
+function ntClose(){
+  var n=NT.cur, m=$('#ntM'); if(!n) return;
+  if(n.imp){ var cb=$('#ntDay'); if(cb&&cb.checked){ var d=ntLS(NTDAY,{}); d[n.id]=ntToday(); ntSet(NTDAY,d); } }
+  else { var s=ntLS(NTSEEN,[]); if(s.indexOf(n.id)<0){ s.push(n.id); ntSet(NTSEEN,s.slice(-50)); } }
+  m.hidden=true; NT.cur=null;
+  setTimeout(ntNext,300);
+}
+// 설정 → 공지 보기
+function openNotices(){
+  var m=$('#ntListM'), l=$('#ntList'); l.textContent='';
+  if(!NT.list.length) l.append(h('p',{class:'muted nt-none',text:'지금 공지가 없어요.'}));
+  NT.list.forEach(function(n){ l.append(ntCard(n,false)); });
+  fillIcons(l); m.hidden=false; $('#ntListX').focus();
+}
+function closeNotices(){ $('#ntListM').hidden=true; }
+function bindNotice(){
+  $('#ntOpen').addEventListener('click',openNotices);
+  $('#ntListX').addEventListener('click',closeNotices);
+  $('#ntM').addEventListener('click',function(e){ if(e.target===this) ntClose(); });
+  $('#ntListM').addEventListener('click',function(e){ if(e.target===this) closeNotices(); });
+  document.addEventListener('keydown',function(e){
+    if(e.key!=='Escape') return;
+    if(!$('#ntM').hidden){ e.preventDefault(); e.stopImmediatePropagation(); ntClose(); }
+    else if(!$('#ntListM').hidden){ e.preventDefault(); e.stopImmediatePropagation(); closeNotices(); }
+  },true);
+  setTimeout(function(){ ntLoad().then(ntPick); },1200);
+  document.addEventListener('visibilitychange',function(){   // 오래 열어 둔 채 돌아오면(3시간 넘게) 새 공지를 다시 확인
+    if(document.visibilityState==='visible'&&Date.now()-NT.at>3*3600000) ntLoad().then(ntPick);
+  });
+}
 })();
 </script>
 <!-- 구글 로그인 라이브러리 (Google Identity Services) -->
