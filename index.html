@@ -800,6 +800,10 @@ body.focus .f-marks{display:none}
 .nt-cnt{margin-left:auto;font-size:12px;font-weight:700;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--accent-soft);color:var(--accent-text);display:inline-grid;place-items:center}
 .nt-cnt+.set-go{margin-left:6px}
 .nt-panel:focus{outline:none}
+/* 설정 안의 공지 쪽 */
+.nt-view{display:none;flex-direction:column;gap:10px}
+#setM .modal-panel.nt-mode>*:not(.m-head):not(.nt-view){display:none!important}
+#setM .modal-panel.nt-mode>.nt-view{display:flex}
 </style>
 <style>.brand{display:flex;align-items:center;gap:8px}.dev-badge{flex:none;display:inline-flex;align-items:center;height:22px;margin-right:6px;font-size:11.5px;font-weight:700;line-height:1;padding:1px 8px 0;border-radius:999px;background:#E9EEF4;color:#465866;letter-spacing:.02em}:root[data-theme="dark"] .dev-badge{background:#33404D;color:#C9D6E3}@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .dev-badge{background:#33404D;color:#C9D6E3}}</style>
 </head>
@@ -939,17 +943,12 @@ body.focus .f-marks{display:none}
       <button class="btn set-trash" id="tourAgain"><span data-ico="help"></span>사용법 다시 보기</button>
       <p class="muted sm" style="margin:0">플롯노트 소개와 사용법을 내 소설 목록에 더해요.</p>
     </section>
+    <div class="nt-view nt-list" id="ntList"></div>
     <p class="set-foot" id="privFoot"><a href="privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></p>
 </div>
 </div>
 <div class="modal" id="ntM" role="dialog" aria-modal="true" aria-labelledby="ntT" hidden>
   <div class="modal-panel nt-panel" id="ntPanel"></div>
-</div>
-<div class="modal" id="ntListM" role="dialog" aria-modal="true" aria-labelledby="ntListT" hidden>
-  <div class="modal-panel">
-    <div class="m-head"><button class="ib" id="ntListX" aria-label="공지 닫기" title="돌아가기" data-ico="back"></button><h2 id="ntListT">공지</h2><span></span></div>
-    <div class="m-list nt-list" id="ntList"></div>
-  </div>
 </div>
 <div class="modal" id="trashM" role="dialog" aria-modal="true" aria-labelledby="trashT" hidden>
   <div class="modal-panel">
@@ -2735,7 +2734,7 @@ function emptyTrash(){
 function openTrash(){openDrawer(false);$('#toast').hidden=true;renderTrash();$('#trashM').hidden=false;$('#trashX').focus();}
 function closeTrash(){$('#trashM').hidden=true;}
 function openSet(){openDrawer(false);$('#toast').hidden=true;BK=null;bkShow();backupLbl();storageUse();$('#setM').hidden=false;}
-function closeSet(){$('#setM').hidden=true;}
+function closeSet(){ntMode(false);$('#setM').hidden=true;}
 function renderTrash(){
   var list=$('#trashList'); list.textContent='';
   var items=trashItems(), now=Date.now();
@@ -4642,7 +4641,7 @@ boot();
 /* ---------- 새 버전 알림: 깃허브에 새 버전이 올라오면 맨 위에 "새 버전이 나왔어요. [새로고침]" ----------
    열어 둔 채로 며칠씩 쓰면 예전 버전이 계속 돌아가므로, 앱으로 돌아올 때와 30분마다 sw.js의 버전을 조용히 확인한다.
    (Claude 테스트 페이지·파일 하나짜리 html에는 sw.js가 없어서 동작하지 않음) */
-var APPVER='c196ca4e02', verAt=0;
+var APPVER='6c65be5589', verAt=0;
 function verCheck(force){
   if(APPVER.indexOf('__')===0||!navigator.onLine||!/^https?:$/.test(location.protocol)) return;
   if(!force&&Date.now()-verAt<5*60000) return; verAt=Date.now();
@@ -4864,23 +4863,29 @@ function ntClose(){
   m.hidden=true; NT.cur=null;
   setTimeout(ntNext,300);
 }
-// 설정 → 공지 보기
+// 설정 → 공지 보기: 설정 화면 안에서 다음 쪽으로 넘어가듯 공지 목록을 보여 준다(뒤로 가기는 설정으로)
+function ntMode(on){
+  var m=$('#setM'), p=m&&m.querySelector('.modal-panel'); if(!p) return;
+  if(!on&&!p.classList.contains('nt-mode')) return;
+  p.classList.toggle('nt-mode',on); $('#setT').textContent=on?'공지':'설정';
+  var x=$('#setX'); x.setAttribute('aria-label',on?'설정으로 돌아가기':'설정 닫기');
+  m.scrollTop=0;
+}
+function ntOn(){ var p=$('#setM .modal-panel'); return !!p&&p.classList.contains('nt-mode'); }
 function openNotices(){
-  var m=$('#ntListM'), l=$('#ntList'); l.textContent='';
+  var l=$('#ntList'); l.textContent='';
   if(!NT.list.length) l.append(h('p',{class:'muted nt-none',text:'지금 공지가 없어요.'}));
   NT.list.forEach(function(n){ l.append(ntCard(n,false)); });
-  fillIcons(l); m.hidden=false; $('#ntListX').focus();
+  fillIcons(l); ntMode(true); $('#setX').focus({preventScroll:true});
 }
-function closeNotices(){ $('#ntListM').hidden=true; }
 function bindNotice(){
   $('#ntOpen').addEventListener('click',openNotices);
-  $('#ntListX').addEventListener('click',closeNotices);
+  $('#setX').addEventListener('click',function(e){ if(ntOn()){ e.stopImmediatePropagation(); ntMode(false); $('#ntOpen').focus({preventScroll:true}); } },true);   // 공지 쪽에선 뒤로 = 설정으로
   $('#ntM').addEventListener('click',function(e){ if(e.target===this) ntClose(); });
-  $('#ntListM').addEventListener('click',function(e){ if(e.target===this) closeNotices(); });
   document.addEventListener('keydown',function(e){
     if(e.key!=='Escape') return;
     if(!$('#ntM').hidden){ e.preventDefault(); e.stopImmediatePropagation(); ntClose(); }
-    else if(!$('#ntListM').hidden){ e.preventDefault(); e.stopImmediatePropagation(); closeNotices(); }
+    else if(!$('#setM').hidden&&ntOn()){ e.preventDefault(); e.stopImmediatePropagation(); ntMode(false); }
   },true);
   setTimeout(function(){ ntLoad().then(ntPick); },1200);
   document.addEventListener('visibilitychange',function(){   // 오래 열어 둔 채 돌아오면(3시간 넘게) 새 공지를 다시 확인
