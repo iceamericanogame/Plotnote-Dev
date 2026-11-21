@@ -4579,7 +4579,7 @@ function boot2(ls){
   applyCur(); tabInit(); bindOnce(); showAll();
   // 브라우저가 저장 공간이 부족할 때 이 사이트 글을 지우지 않도록 요청(파이어폭스는 창이 떠서 하지 않음)
   try{ if(navigator.storage&&navigator.storage.persist&&!/Firefox/.test(navigator.userAgent)) navigator.storage.persisted().then(function(p){if(!p)navigator.storage.persist();}).catch(function(){}); }catch(_){}
-  bootDone=true; purgeExpired(); saveLSNow(); renderConf(false); bindVer(); bindBeta(); bindNotice(); setTimeout(function(){tourMaybe('main');},700);
+  bootDone=true; purgeExpired(); saveLSNow(); renderConf(false); bindVer(); bindBeta(); bindNotice(); bindLock(); setTimeout(function(){tourMaybe('main');},700);
   renderAcctBtn(); initTc();
   if(A.on){ if(Date.now()>A.exp){setY('reauth');silentRenew('boot');} else {syncNow('launch',true);scheduleRenew();} }
   else if(!isGuest()) showGate('login');
@@ -4662,7 +4662,7 @@ boot();
 /* ---------- 새 버전 알림: 깃허브에 새 버전이 올라오면 맨 위에 "새 버전이 나왔어요. [새로고침]" ----------
    열어 둔 채로 며칠씩 쓰면 예전 버전이 계속 돌아가므로, 앱으로 돌아올 때와 30분마다 sw.js의 버전을 조용히 확인한다.
    (Claude 테스트 페이지·파일 하나짜리 html에는 sw.js가 없어서 동작하지 않음) */
-var APPVER='b3fdf0ce01', verAt=0;
+var APPVER='428cd4084f', verAt=0;
 function verCheck(force){
   if(APPVER.indexOf('__')===0||!navigator.onLine||!/^https?:$/.test(location.protocol)) return;
   if(!force&&Date.now()-verAt<5*60000) return; verAt=Date.now();
@@ -4912,6 +4912,39 @@ function bindNotice(){
   document.addEventListener('visibilitychange',function(){   // 오래 열어 둔 채 돌아오면(3시간 넘게) 새 공지를 다시 확인
     if(document.visibilityState==='visible'&&Date.now()-NT.at>3*3600000) ntLoad().then(ntPick);
   });
+}
+/* ---------- 창(공지·설정·휴지통·받기·계정 등)이 떠 있는 동안 글은 잠근다 ----------
+   뒤에 가려진 글이 키보드로 바뀌지 않게: 글 칸과 회차 제목을 고칠 수 없게 하고(한글 입력기 포함),
+   되돌리기·다시 하기·전체 선택·복사·붙여넣기 같은 단축키도 막는다(창 안의 입력 칸에서는 그대로).
+   창을 모두 닫으면 원래대로 돌아오고, 창을 열 때 글 칸에서 쓰던 중이었으면 그 자리로 커서를 돌려준다. */
+var LOCK={on:false,foc:false,left:0};
+function anyModal(){ return $$('.modal').some(function(m){ return !m.hidden; }); }
+function lockSync(){
+  var on=anyModal(); if(on===LOCK.on) return;
+  LOCK.on=on;
+  if(on){
+    LOCK.foc=document.activeElement===ed||Date.now()-LOCK.left<400;   // 창이 열리며 포커스를 먼저 가져간 경우(휴지통 등)도 쓰던 중으로
+    if(typeof closeView==='function') closeView(false);
+    ed.setAttribute('contenteditable','false'); ed.setAttribute('aria-readonly','true'); ttl.readOnly=true;
+    if(LOCK.foc) ed.blur();
+  } else {
+    ed.setAttribute('contenteditable','true'); ed.removeAttribute('aria-readonly'); ttl.readOnly=false;
+    if(LOCK.foc) ed.focus({preventScroll:true});
+    LOCK.foc=false;
+  }
+}
+function lockKey(e){
+  if(!LOCK.on) return;
+  var t=e.target, field=t&&t.closest&&t.closest('.modal')&&(/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)||t.isContentEditable);
+  if(field) return;   // 창 안의 입력 칸(검색·이름 등)은 그대로
+  var k=(e.key||'').toLowerCase();
+  if(((e.ctrlKey||e.metaKey)&&/^(z|y|a|b|i|u|x|c|v|\\)$/.test(k))||k==='pageup'||k==='pagedown'){ e.preventDefault(); e.stopImmediatePropagation(); }
+}
+function bindLock(){
+  new MutationObserver(lockSync).observe(document.body,{subtree:true,attributes:true,attributeFilter:['hidden']});
+  ed.addEventListener('blur',function(){ LOCK.left=Date.now(); });
+  window.addEventListener('keydown',lockKey,true);   // 다른 단축키 처리(문서 쪽)보다 먼저
+  lockSync();
 }
 })();
 </script>
