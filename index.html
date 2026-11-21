@@ -805,6 +805,17 @@ body.focus .f-marks{display:none}
 .nt-view{display:none;flex-direction:column;gap:10px}
 #setM .modal-panel.nt-mode>*:not(.m-head):not(.nt-view){display:none!important}
 #setM .modal-panel.nt-mode>.nt-view{display:flex}
+/* 다크 모드: 공지 창이 뒤 배경과 섞이지 않게 창은 한 단계 밝게, 테두리, 뒤는 더 어둡게 */
+:root[data-theme="dark"] #ntM{background:rgb(0 0 0 / .6)}
+:root[data-theme="dark"] #ntM .modal-panel{background:#3A3D44;border:1px solid #5C5F67;box-shadow:0 12px 40px rgb(0 0 0 / .55)}
+:root[data-theme="dark"] #ntM .nt-badge:not(.imp){background:#4C4F57;color:#E6E6E8}
+:root[data-theme="dark"] #ntM .nt-bk,:root[data-theme="dark"] #ntM .ib{background:#41444B;border-color:#60636B}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]) #ntM{background:rgb(0 0 0 / .6)}
+  :root:not([data-theme="light"]) #ntM .modal-panel{background:#3A3D44;border:1px solid #5C5F67;box-shadow:0 12px 40px rgb(0 0 0 / .55)}
+  :root:not([data-theme="light"]) #ntM .nt-badge:not(.imp){background:#4C4F57;color:#E6E6E8}
+  :root:not([data-theme="light"]) #ntM .nt-bk,:root:not([data-theme="light"]) #ntM .ib{background:#41444B;border-color:#60636B}
+}
 </style>
 <style>.brand{display:flex;align-items:center;gap:8px}.dev-badge{flex:none;display:inline-flex;align-items:center;height:22px;margin-right:6px;font-size:11.5px;font-weight:700;line-height:1;padding:1px 8px 0;border-radius:999px;background:#E9EEF4;color:#465866;letter-spacing:.02em}:root[data-theme="dark"] .dev-badge{background:#33404D;color:#C9D6E3}@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .dev-badge{background:#33404D;color:#C9D6E3}}</style>
 </head>
@@ -4651,7 +4662,7 @@ boot();
 /* ---------- 새 버전 알림: 깃허브에 새 버전이 올라오면 맨 위에 "새 버전이 나왔어요. [새로고침]" ----------
    열어 둔 채로 며칠씩 쓰면 예전 버전이 계속 돌아가므로, 앱으로 돌아올 때와 30분마다 sw.js의 버전을 조용히 확인한다.
    (Claude 테스트 페이지·파일 하나짜리 html에는 sw.js가 없어서 동작하지 않음) */
-var APPVER='caa1e4f889', verAt=0;
+var APPVER='b3fdf0ce01', verAt=0;
 function verCheck(force){
   if(APPVER.indexOf('__')===0||!navigator.onLine||!/^https?:$/.test(location.protocol)) return;
   if(!force&&Date.now()-verAt<5*60000) return; verAt=Date.now();
